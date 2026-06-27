@@ -10,6 +10,7 @@ local Animation = PNC.Animation
 local Visuals = PNC.Visuals
 local Equipment = PNC.Equipment
 local PathService = PNC.PathService
+local ZombieAggro = PNC.ZombieAggro
 local Network = nil
 
 local function resolveNetwork()
@@ -157,6 +158,9 @@ function Presence.Abstract(record, reason)
         record.y = zombie:getY()
         record.z = zombie:getZ()
         PathService.Reset(zombie, record)
+        if ZombieAggro and ZombieAggro.ClearForNPCBody then
+            ZombieAggro.ClearForNPCBody(zombie)
+        end
         if zombie.removeFromWorld then
             zombie:removeFromWorld()
         end

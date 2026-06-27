@@ -73,4 +73,5 @@ function OrderSystem.SetHostility(record, modeSpec)
     record.hostility.mode = tostring(modeSpec and modeSpec.mode or record.hostility.mode or "neutral")
     record.hostility.attackPlayers = modeSpec and modeSpec.attackPlayers == true or record.hostility.attackPlayers == true
     record.hostility.attackNPCs = modeSpec and modeSpec.attackNPCs ~= false or record.hostility.attackNPCs ~= false
+    record.hostility.attackZombies = modeSpec and modeSpec.attackZombies ~= false or record.hostility.attackZombies ~= false
 end

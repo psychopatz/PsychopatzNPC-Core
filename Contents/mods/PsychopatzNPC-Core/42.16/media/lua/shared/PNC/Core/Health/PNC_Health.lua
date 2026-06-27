@@ -22,9 +22,24 @@ function Health.Ensure(record)
             state = "normal",
             lastDamageAt = 0,
             downedAt = 0,
+            recentDamageUntil = 0,
         }
+    elseif record.health.recentDamageUntil == nil then
+        record.health.recentDamageUntil = 0
     end
     return record.health
+end
+
+function Health.MarkRecentDamage(record, now)
+    local health = Health.Ensure(record)
+    local damageAt = tonumber(now) or Core.Now()
+    health.lastDamageAt = damageAt
+    health.recentDamageUntil = damageAt + Const.RECENT_DAMAGE_SHOW_MS
+    record.runtime = record.runtime or {}
+    record.runtime.inCombatUntil = math.max(
+        tonumber(record.runtime.inCombatUntil or 0) or 0,
+        damageAt + Const.DEBUG_COMBAT_HOLD_MS
+    )
 end
 
 local function applyIncapacitatedLiveState(record, zombie)
@@ -86,13 +101,15 @@ end
 
 function Health.EnterIncapacitated(record, zombie, reason)
     local health = Health.Ensure(record)
+    local now = Core.Now()
     if not record or record.alive == false then
         return false
     end
     health.current = math.max(Const.INCAPACITATED_HP, 1)
     health.state = "incapacitated"
-    health.downedAt = Core.Now()
+    health.downedAt = now
     health.incapacitatedReason = reason or "unknown"
+    health.recentDamageUntil = now + Const.RECENT_DAMAGE_SHOW_MS
     record.runtime.target = nil
     record.runtime.lastPathX = nil
     record.runtime.lastPathY = nil
@@ -109,6 +126,7 @@ function Health.Recover(record, zombie)
     health.state = "normal"
     health.downedAt = 0
     health.incapacitatedReason = nil
+    health.recentDamageUntil = 0
     record.alive = true
     record.runtime.target = nil
     record.runtime.inCombatUntil = 0
@@ -130,6 +148,7 @@ function Health.Kill(record, zombie, reason)
     local health = Health.Ensure(record)
     health.current = 0
     health.state = "dead"
+    health.recentDamageUntil = Core.Now() + Const.RECENT_DAMAGE_SHOW_MS
     record.alive = false
     record.presenceState = Const.PRESENCE_CORPSE
     record.runtime.target = nil
@@ -157,7 +176,11 @@ function Health.ApplyDamage(record, zombie, damageEvent)
         return false
     end
 
-    health.lastDamageAt = now
+    Health.MarkRecentDamage(record, now)
+    if damageEvent and damageEvent.attackerKind == "zombie" then
+        record.runtime.targetKind = "zombie"
+        record.runtime.combatBlockReason = "taking_zombie_damage"
+    end
 
     if health.state == "incapacitated" then
         if (now - (tonumber(health.downedAt) or 0)) < Const.INCAPACITATED_GRACE_MS then

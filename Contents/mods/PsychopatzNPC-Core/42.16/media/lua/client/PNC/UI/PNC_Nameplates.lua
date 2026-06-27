@@ -9,7 +9,7 @@ local ClientState = PNC.Network.ClientState
 
 Nameplates.Settings = Nameplates.Settings or {
     enabled = true,
-    showAIDebug = true,
+    showAIDebug = false,
 }
 Nameplates.State = Nameplates.State or {
     managers = {},
@@ -30,6 +30,7 @@ local NAME_Y_OFFSET = 152
 local BAR_Y_OFFSET = 130
 local HP_TEXT_TOP_GAP = 12
 local DEBUG_TEXT_GAP = 14
+local NAME_DEBUG_GAP = 16
 local FONT_NAME = UIFont.Small
 local FONT_HP = UIFont.Medium
 local FONT_DEBUG = UIFont.Small
@@ -91,6 +92,19 @@ local function getHeartTexture()
     return texture
 end
 
+local function shouldShowHealth(snapshot, currentTime)
+    if not snapshot then
+        return false
+    end
+    if tostring(snapshot.healthState or "") == "incapacitated" then
+        return true
+    end
+    if snapshot.inCombat == true then
+        return true
+    end
+    return (tonumber(snapshot.recentDamageUntil) or 0) > currentTime
+end
+
 local function buildDebugText(snapshot)
     local debugState = snapshot and snapshot.debugState or nil
     if not debugState then
@@ -101,6 +115,9 @@ local function buildDebugText(snapshot)
         "Job: " .. tostring(debugState.activeJob or "-"),
         "Order: " .. tostring(debugState.orderKind or "-"),
         "Target: " .. tostring(debugState.targetKind or "none"),
+        "Mode: " .. tostring(debugState.combatModeResolved or debugState.weaponMode or "-"),
+        "Weapon: " .. tostring(debugState.weaponStatus or "-"),
+        "Block: " .. tostring(debugState.combatBlockReason or "-"),
     }, " | ")
 end
 
@@ -140,6 +157,19 @@ local function cacheEntryMetrics(entry, snapshot)
     elseif not entry.debugTextWidth then
         entry.debugTextWidth = textManager:MeasureStringX(FONT_DEBUG, debugText)
     end
+end
+
+local function drawOutlinedText(manager, text, x, y, r, g, b, a, font)
+    local outlineAlpha
+    if not text or text == "" then
+        return
+    end
+    outlineAlpha = math.min(1, (a or 1) * 0.95)
+    manager:drawText(text, x - 1, y, 0, 0, 0, outlineAlpha, font)
+    manager:drawText(text, x + 1, y, 0, 0, 0, outlineAlpha, font)
+    manager:drawText(text, x, y - 1, 0, 0, 0, outlineAlpha, font)
+    manager:drawText(text, x, y + 1, 0, 0, 0, outlineAlpha, font)
+    manager:drawText(text, x, y, r, g, b, a, font)
 end
 
 ISPNCNameplateManager = ISUIElement:derive("ISPNCNameplateManager")
@@ -231,6 +261,7 @@ function ISPNCNameplateManager:update()
                     entry.zombie = zombie
                     entry.healthRatio = getHealthRatio(snapshot.hpCurrent, snapshot.hpMax)
                     entry.nameColor = getNameColor(snapshot)
+                    entry.healthVisible = shouldShowHealth(snapshot, currentTime)
                     entry.barColor = snapshot.healthState == "incapacitated"
                         and getIncapacitatedBarColor(currentTime)
                         or getColorForRatio(entry.healthRatio)
@@ -274,6 +305,7 @@ function ISPNCNameplateManager:render()
     local hpR
     local hpG
     local hpB
+    local debugY
 
     if not Settings.enabled or not self.player then
         self:clearStencilRect()
@@ -308,7 +340,8 @@ function ISPNCNameplateManager:render()
                     entry.barColor = getIncapacitatedBarColor(currentTime)
                 end
 
-                self:drawText(
+                drawOutlinedText(
+                    self,
                     entry.name,
                     screenX - ((entry.nameWidth or 0) / 2),
                     screenY - nameYOffset,
@@ -319,88 +352,97 @@ function ISPNCNameplateManager:render()
                     FONT_NAME
                 )
 
-                self:drawRect(
-                    barLeft - PADDING,
-                    barTop - PADDING,
-                    barWidth + (PADDING * 2),
-                    barHeight + (PADDING * 2),
-                    0.55 * alpha,
-                    0,
-                    0,
-                    0
-                )
-                self:drawRect(
-                    barLeft,
-                    barTop,
-                    barWidth * entry.healthRatio,
-                    barHeight,
-                    entry.barColor.a * alpha,
-                    entry.barColor.r,
-                    entry.barColor.g,
-                    entry.barColor.b
-                )
-                self:drawRectBorder(
-                    barLeft - PADDING,
-                    barTop - PADDING,
-                    barWidth + (PADDING * 2),
-                    barHeight + (PADDING * 2),
-                    alpha,
-                    math.min(1, entry.barColor.r + 0.08),
-                    math.min(1, entry.barColor.g + 0.08),
-                    math.min(1, entry.barColor.b + 0.08)
-                )
-
-                totalCounterWidth = heartIconSize + heartGap + (entry.hpTextWidth or 0)
-                counterX = screenX - (totalCounterWidth / 2)
-                counterY = barTop - (HP_TEXT_TOP_GAP / zoom)
-
-                if heartIcon then
-                    self:drawTextureScaled(
-                        heartIcon,
-                        counterX,
-                        counterY + (2 / zoom),
-                        heartIconSize,
-                        heartIconSize,
+                if entry.healthVisible then
+                    self:drawRect(
+                        barLeft - PADDING,
+                        barTop - PADDING,
+                        barWidth + (PADDING * 2),
+                        barHeight + (PADDING * 2),
+                        0.55 * alpha,
+                        0,
+                        0,
+                        0
+                    )
+                    self:drawRect(
+                        barLeft,
+                        barTop,
+                        barWidth * entry.healthRatio,
+                        barHeight,
+                        entry.barColor.a * alpha,
+                        entry.barColor.r,
+                        entry.barColor.g,
+                        entry.barColor.b
+                    )
+                    self:drawRectBorder(
+                        barLeft - PADDING,
+                        barTop - PADDING,
+                        barWidth + (PADDING * 2),
+                        barHeight + (PADDING * 2),
                         alpha,
-                        1,
-                        1,
-                        1
+                        math.min(1, entry.barColor.r + 0.08),
+                        math.min(1, entry.barColor.g + 0.08),
+                        math.min(1, entry.barColor.b + 0.08)
+                    )
+
+                    totalCounterWidth = heartIconSize + heartGap + (entry.hpTextWidth or 0)
+                    counterX = screenX - (totalCounterWidth / 2)
+                    counterY = barTop - (HP_TEXT_TOP_GAP / zoom)
+
+                    if heartIcon then
+                        self:drawTextureScaled(
+                            heartIcon,
+                            counterX,
+                            counterY + (2 / zoom),
+                            heartIconSize,
+                            heartIconSize,
+                            alpha,
+                            1,
+                            1,
+                            1
+                        )
+                    end
+
+                    hpR = 0.1
+                    hpG = 0.8
+                    hpB = 0.1
+                    if entry.healthRatio < 0.25 then
+                        hpR = 0.8
+                        hpG = 0.1
+                        hpB = 0.1
+                    elseif entry.healthRatio < 0.6 then
+                        hpR = 0.8
+                        hpG = 0.8
+                        hpB = 0.1
+                    end
+
+                    drawOutlinedText(
+                        self,
+                        entry.hpText,
+                        counterX + heartIconSize + heartGap,
+                        counterY,
+                        hpR,
+                        hpG,
+                        hpB,
+                        alpha,
+                        FONT_HP
                     )
                 end
 
-                hpR = 0.1
-                hpG = 0.8
-                hpB = 0.1
-                if entry.healthRatio < 0.25 then
-                    hpR = 0.8
-                    hpG = 0.1
-                    hpB = 0.1
-                elseif entry.healthRatio < 0.6 then
-                    hpR = 0.8
-                    hpG = 0.8
-                    hpB = 0.1
-                end
-
-                self:drawText(
-                    entry.hpText,
-                    counterX + heartIconSize + heartGap,
-                    counterY,
-                    hpR,
-                    hpG,
-                    hpB,
-                    alpha,
-                    FONT_HP
-                )
-
                 if Settings.showAIDebug then
-                    self:drawText(
+                    if entry.healthVisible then
+                        debugY = barTop + barHeight + DEBUG_TEXT_GAP
+                    else
+                        debugY = (screenY - nameYOffset) + NAME_DEBUG_GAP
+                    end
+                    drawOutlinedText(
+                        self,
                         entry.debugText,
                         screenX - ((entry.debugTextWidth or 0) / 2),
-                        barTop + barHeight + DEBUG_TEXT_GAP,
+                        debugY,
                         0.8,
                         0.9,
                         1.0,
-                        0.92 * alpha,
+                        0.95 * alpha,
                         FONT_DEBUG
                     )
                 end
@@ -418,6 +460,8 @@ end
 function Nameplates.ToggleDebug()
     local player = getSpecificPlayer(0)
     Settings.showAIDebug = not Settings.showAIDebug
+    PNC.Runtime = PNC.Runtime or {}
+    PNC.Runtime.debugEnabled = Settings.showAIDebug == true
     if player and HaloTextHelper and HaloTextHelper.addText then
         HaloTextHelper.addText(player, "PNC AI Overlay: " .. (Settings.showAIDebug and "ON" or "OFF"))
     end
@@ -435,6 +479,9 @@ function Nameplates.DebugDescribeSnapshot(snapshot)
         "job=" .. tostring(snapshot.debugState and snapshot.debugState.activeJob or "-"),
         "order=" .. tostring(snapshot.debugState and snapshot.debugState.orderKind or "-"),
         "target=" .. tostring(snapshot.debugState and snapshot.debugState.targetKind or "none"),
+        "mode=" .. tostring(snapshot.debugState and snapshot.debugState.combatModeResolved or snapshot.weaponMode or "-"),
+        "weapon=" .. tostring(snapshot.debugState and snapshot.debugState.weaponStatus or "-"),
+        "block=" .. tostring(snapshot.debugState and snapshot.debugState.combatBlockReason or "-"),
         "hp=" .. tostring(snapshot.hpCurrent) .. "/" .. tostring(snapshot.hpMax),
         "healthState=" .. tostring(snapshot.healthState),
         "presence=" .. tostring(snapshot.presenceState),

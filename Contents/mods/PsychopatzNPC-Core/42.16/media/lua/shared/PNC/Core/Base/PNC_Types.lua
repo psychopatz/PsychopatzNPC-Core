@@ -99,6 +99,7 @@ function Types.NewRecord(definition)
             mode = hostile and "hostile_any_player" or "defend_owner",
             attackPlayers = hostile,
             attackNPCs = true,
+            attackZombies = true,
         },
         health = {
             current = def.hpMax,
@@ -106,6 +107,7 @@ function Types.NewRecord(definition)
             state = "normal",
             lastDamageAt = 0,
             downedAt = 0,
+            recentDamageUntil = 0,
         },
         presenceState = Const.PRESENCE_ABSTRACT,
         alive = true,
@@ -122,6 +124,11 @@ function Types.NewRecord(definition)
             lastPathX = nil,
             lastPathY = nil,
             lastAttackAt = 0,
+            lastZombieAttackAt = 0,
+            targetKind = "none",
+            combatModeResolved = tostring(def.weaponMode or (hostile and "mixed" or "melee")),
+            weaponStatus = "barehand",
+            combatBlockReason = "spawned",
             debug = def.debug == true,
         },
     }

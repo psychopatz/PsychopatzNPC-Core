@@ -5,6 +5,7 @@ PNC.Network.ClientState = PNC.Network.ClientState or { snapshots = {} }
 local Network = PNC.Network
 local Core = PNC.Core
 local Const = PNC.Const
+local Equipment = PNC.Equipment
 
 local function resolveAIState(record)
     local healthState = record.health and tostring(record.health.state or "normal") or "normal"
@@ -34,6 +35,7 @@ function Network.BuildSnapshot(record)
     local aiState
     local inCombat
     local target = record.runtime and record.runtime.target or nil
+    local equipmentInfo = Equipment and Equipment.Describe and Equipment.Describe(record) or {}
     aiState, inCombat = resolveAIState(record)
     return {
         id = record.id,
@@ -52,8 +54,11 @@ function Network.BuildSnapshot(record)
         hpCurrent = record.health and record.health.current or nil,
         hpMax = record.health and record.health.max or nil,
         healthState = record.health and record.health.state or nil,
+        recentDamageUntil = record.health and record.health.recentDamageUntil or 0,
         weaponMode = record.weaponMode,
         weaponFullType = record.equipment and record.equipment.primaryFullType or nil,
+        combatModeResolved = equipmentInfo.combatModeResolved or record.weaponMode,
+        weaponStatus = equipmentInfo.weaponStatus or "unknown",
         presenceRevision = record.presenceRevision,
         aiState = aiState,
         inCombat = inCombat,
@@ -65,6 +70,10 @@ function Network.BuildSnapshot(record)
             targetKind = target and target.kind or nil,
             healthState = record.health and record.health.state or nil,
             weaponMode = record.weaponMode,
+            combatModeResolved = equipmentInfo.combatModeResolved or record.weaponMode,
+            weaponStatus = equipmentInfo.weaponStatus or "unknown",
+            combatBlockReason = record.runtime and record.runtime.combatBlockReason or nil,
+            debugEnabled = record.runtime and record.runtime.debug == true or false,
             presenceState = record.presenceState,
         },
     }

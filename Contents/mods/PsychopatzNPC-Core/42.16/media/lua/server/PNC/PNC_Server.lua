@@ -17,6 +17,7 @@ local PathService = PNC.PathService
 local Scheduler = PNC.Scheduler
 local Network = PNC.Network
 local API = PNC.API
+local ZombieAggro = PNC.ZombieAggro
 
 local function buildSnapshotList()
     local list = {}
@@ -66,6 +67,9 @@ function Server.OnTick()
     Registry.ForEach(function(record)
         processRecord(record, now)
     end)
+    if ZombieAggro and ZombieAggro.Pump then
+        ZombieAggro.Pump(now)
+    end
 end
 
 local function handleDebugSpawn(player, args)
@@ -176,6 +180,11 @@ local function onClientCommand(module, command, player, args)
             end
         end
         API.DebugCommand(args.id, "copy_held_weapon", args)
+        return
+    end
+
+    if args and args.action == "toggle_debug" then
+        API.DebugCommand(args.id, "toggle_debug", args)
         return
     end
 

@@ -63,6 +63,21 @@ function Registry.ForEach(callback)
     end
 end
 
+function Registry.ForEachLive(callback)
+    local id
+    local zombie
+    local record
+    if type(callback) ~= "function" then
+        return
+    end
+    for id, zombie in pairs(Registry.LiveByID) do
+        record = Registry.Data[id]
+        if record and zombie then
+            callback(record, zombie, id)
+        end
+    end
+end
+
 function Registry.AddRecord(record)
     Registry.EnsureLoaded()
     Registry.Data[record.id] = record

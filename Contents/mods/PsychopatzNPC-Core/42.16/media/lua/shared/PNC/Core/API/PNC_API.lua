@@ -101,6 +101,9 @@ function API.DebugCommand(npcId, command, args)
     local record = Registry.Get(npcId)
     local zombie
     local fullType
+    local applied
+    local applyReason
+    local equipmentInfo
     if not record then
         return false
     end
@@ -130,20 +133,35 @@ function API.DebugCommand(npcId, command, args)
     end
     if command == "set_weapon_mode" then
         record.weaponMode = tostring(args and args.weaponMode or record.weaponMode or "melee")
+        equipmentInfo = Equipment.Describe(record)
+        record.runtime.combatModeResolved = equipmentInfo.combatModeResolved
+        record.runtime.weaponStatus = equipmentInfo.weaponStatus
         Network.BroadcastRecord(record, "weapon_mode")
         return true
     end
     if command == "copy_held_weapon" then
         fullType = args and args.weaponFullType or nil
+        Core.LogRecordDebug(record, "NPC " .. tostring(npcId) .. " copy_held_weapon requested fullType=" .. tostring(fullType))
         Equipment.SetPrimary(record, fullType)
         zombie = Registry.GetLiveZombie(npcId)
         if zombie then
-            Equipment.Apply(zombie, record)
+            applied, applyReason = Equipment.Apply(zombie, record)
+            Core.LogRecordDebug(record, "NPC " .. tostring(npcId) .. " equipment apply live=" .. tostring(applied) .. " reason=" .. tostring(applyReason))
+        else
+            Core.LogRecordDebug(record, "NPC " .. tostring(npcId) .. " has no live body during weapon copy; equipment stored for later materialize")
         end
         if fullType then
             record.weaponMode = Equipment.ResolveWeaponMode(fullType)
         end
+        equipmentInfo = Equipment.Describe(record)
+        record.runtime.combatModeResolved = equipmentInfo.combatModeResolved
+        record.runtime.weaponStatus = equipmentInfo.weaponStatus
         Network.BroadcastRecord(record, "equipment")
+        return true
+    end
+    if command == "toggle_debug" then
+        record.runtime.debug = not (record.runtime and record.runtime.debug == true)
+        Network.BroadcastRecord(record, "debug_toggle")
         return true
     end
     return false

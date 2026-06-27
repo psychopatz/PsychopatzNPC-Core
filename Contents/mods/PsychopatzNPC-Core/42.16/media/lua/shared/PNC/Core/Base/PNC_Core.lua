@@ -227,3 +227,16 @@ function Core.LogDebug(message)
         Core.Log("DEBUG", message)
     end
 end
+
+function Core.IsRecordDebugEnabled(record)
+    if record and record.runtime and record.runtime.debug == true then
+        return true
+    end
+    return PNC.Runtime and PNC.Runtime.debugEnabled == true
+end
+
+function Core.LogRecordDebug(record, message)
+    if Core.IsRecordDebugEnabled(record) then
+        Core.Log("DEBUG", message)
+    end
+end

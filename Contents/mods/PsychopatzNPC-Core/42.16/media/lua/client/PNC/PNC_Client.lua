@@ -240,6 +240,9 @@ local function onFillWorldObjectContextMenu(playerNum, context, worldobjects, te
                 HaloTextHelper.addText(player, "PNC snapshot printed to console")
             end
         end)
+        subMenu:addOption("Toggle Combat Debug", nil, function()
+            sendDebug("toggle_debug", { id = record.id })
+        end)
 
         orderMenu = ISContextMenu:getNew(context)
         subMenu:addSubMenu(subMenu:addOption("Orders"), orderMenu)
@@ -309,6 +312,7 @@ local function onFillWorldObjectContextMenu(playerNum, context, worldobjects, te
         end)
         if heldItem and heldItem.getFullType then
             weaponMenu:addOption("Use My Held Weapon", nil, function()
+                print("[PNC] Requesting held weapon copy for " .. tostring(record.id) .. " fullType=" .. tostring(heldItem:getFullType()))
                 sendDebug("copy_held_weapon", { id = record.id, weaponFullType = heldItem:getFullType() })
             end)
         end

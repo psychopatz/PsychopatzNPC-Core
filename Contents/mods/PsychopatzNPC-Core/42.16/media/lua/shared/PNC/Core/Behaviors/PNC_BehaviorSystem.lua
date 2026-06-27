@@ -9,6 +9,26 @@ local Perception = PNC.Perception
 local Combat = PNC.Combat
 local PathService = PNC.PathService
 local JobSystem = PNC.JobSystem
+local Equipment = PNC.Equipment
+
+local function setCombatDebug(record, target, reason, modeResolved, weaponStatus)
+    record.runtime.targetKind = target and target.kind or "none"
+    record.runtime.combatModeResolved = modeResolved or tostring(record.weaponMode or "melee")
+    record.runtime.weaponStatus = weaponStatus or record.runtime.weaponStatus or "unknown"
+    record.runtime.combatBlockReason = reason or "idle"
+end
+
+local function clearCombatTarget(record, reason)
+    local equipmentInfo = Equipment.Describe(record)
+    record.runtime.target = nil
+    setCombatDebug(
+        record,
+        nil,
+        reason or "no_target",
+        equipmentInfo.combatModeResolved or tostring(record.weaponMode or "melee"),
+        equipmentInfo.weaponStatus or record.runtime.weaponStatus
+    )
+end
 
 local function bindLiveTarget(zombie, target)
     local targetZombie
@@ -25,12 +45,14 @@ local function bindLiveTarget(zombie, target)
     end
     if target.kind == "npc" then
         targetZombie = Registry.GetLiveZombie(target.id)
-        if targetZombie then
-            if zombie.faceThisObject then
-                zombie:faceThisObject(targetZombie)
-            elseif zombie.faceLocationF then
-                zombie:faceLocationF(target.x, target.y)
-            end
+    elseif target.kind == "zombie" and Perception.FindZombieByID then
+        targetZombie = Perception.FindZombieByID(target.zombieId)
+    end
+    if targetZombie then
+        if zombie.faceThisObject then
+            zombie:faceThisObject(targetZombie)
+        elseif zombie.faceLocationF then
+            zombie:faceLocationF(target.x, target.y)
         end
     end
 end
@@ -47,37 +69,128 @@ local function moveRecord(record, zombie, tx, ty, tz, mode, stopDistance)
     return true, "abstract_move"
 end
 
+local function updateTargetFromWorld(record, target)
+    local targetRecord
+    local player
+    local zombie
+    if not target then
+        return nil
+    end
+    if target.kind == "npc" then
+        targetRecord = Registry.Get(target.id)
+        if targetRecord and targetRecord.alive ~= false then
+            target.x = targetRecord.x
+            target.y = targetRecord.y
+            target.z = targetRecord.z
+            target.distSq = Core.DistanceSq(record.x, record.y, target.x, target.y)
+            return target
+        end
+        return nil
+    end
+    if target.kind == "player" then
+        player = Core.ResolvePlayerByOnlineID(target.onlineID) or Core.ResolvePlayerByUsername(target.username)
+        if player then
+            target.player = player
+            target.x = player:getX()
+            target.y = player:getY()
+            target.z = player:getZ()
+            target.distSq = Core.DistanceSq(record.x, record.y, target.x, target.y)
+            return target
+        end
+        return nil
+    end
+    if target.kind == "zombie" then
+        zombie = Perception.FindZombieByID and Perception.FindZombieByID(target.zombieId) or nil
+        if zombie then
+            target.x = zombie:getX()
+            target.y = zombie:getY()
+            target.z = zombie:getZ()
+            target.distSq = Core.DistanceSq(record.x, record.y, target.x, target.y)
+            return target
+        end
+        return Perception.FindNearestEnemyZombie(record, Const.ZOMBIE_TARGET_RADIUS)
+    end
+    return nil
+end
+
 local function tickEngage(record, zombie, target)
     local dist = math.sqrt(tonumber(target and target.distSq or 0) or 0)
-    local weaponMode = tostring(record.weaponMode or "melee")
+    local equipmentInfo = Equipment.Describe(record)
+    local effectiveMode = equipmentInfo.combatModeResolved
+    local previousWeaponStatus = record.runtime.weaponStatus
+    local attacked
+    local reason
+
     bindLiveTarget(zombie, target)
-    if zombie then
-        PNC.Animation.Apply(zombie, record, dist > Const.MELEE_RANGE and "Run" or "Walk")
+    setCombatDebug(record, target, "engaging_" .. tostring(target.kind or "unknown"), effectiveMode, equipmentInfo.weaponStatus)
+
+    if equipmentInfo.weaponStatus ~= previousWeaponStatus then
+        Core.LogRecordDebug(record, "NPC " .. tostring(record.id) .. " weapon state=" .. tostring(equipmentInfo.weaponStatus))
     end
 
-    if weaponMode == "melee" then
-        if not Combat.TryMelee(record, zombie, target) then
-            moveRecord(record, zombie, target.x, target.y, target.z, "run", Const.MELEE_RANGE)
+    if zombie then
+        if effectiveMode == "ranged" or effectiveMode == "mixed" then
+            PNC.Animation.Apply(zombie, record, dist > Const.MELEE_RANGE and "Run" or "Walk")
+        else
+            PNC.Animation.Apply(zombie, record, dist > Const.MELEE_RANGE and "Run" or "Walk")
         end
+    end
+
+    if effectiveMode == "melee" then
+        attacked, reason = Combat.TryMelee(record, zombie, target)
+        if attacked then
+            setCombatDebug(record, target, "attacking_melee", effectiveMode, equipmentInfo.weaponStatus)
+            return
+        end
+        if reason == "target_out_of_range" then
+            moveRecord(record, zombie, target.x, target.y, target.z, "run", Const.MELEE_RANGE)
+            setCombatDebug(record, target, "closing_to_melee", effectiveMode, equipmentInfo.weaponStatus)
+            return
+        end
+        setCombatDebug(record, target, reason, effectiveMode, equipmentInfo.weaponStatus)
+        Core.LogRecordDebug(record, "NPC " .. tostring(record.id) .. " melee blocked=" .. tostring(reason))
         return
     end
 
-    if weaponMode == "ranged" then
-        if not Combat.TryRanged(record, zombie, target) then
-            if dist > Const.RANGED_RANGE then
-                moveRecord(record, zombie, target.x, target.y, target.z, "run", Const.RANGED_RANGE * 0.8)
-            end
+    if effectiveMode == "ranged" then
+        attacked, reason = Combat.TryRanged(record, zombie, target)
+        if attacked then
+            setCombatDebug(record, target, "attacking_ranged", effectiveMode, equipmentInfo.weaponStatus)
+            return
         end
+        if reason == "target_out_of_range" then
+            moveRecord(record, zombie, target.x, target.y, target.z, "run", Const.RANGED_RANGE * 0.8)
+            setCombatDebug(record, target, "closing_to_range", effectiveMode, equipmentInfo.weaponStatus)
+            return
+        end
+        setCombatDebug(record, target, reason, effectiveMode, equipmentInfo.weaponStatus)
+        Core.LogRecordDebug(record, "NPC " .. tostring(record.id) .. " ranged blocked=" .. tostring(reason))
         return
     end
 
     if dist <= Const.MELEE_RANGE * 1.1 then
-        Combat.TryMelee(record, zombie, target)
-    else
-        if not Combat.TryRanged(record, zombie, target) then
-            moveRecord(record, zombie, target.x, target.y, target.z, "run", Const.RANGED_RANGE * 0.85)
+        attacked, reason = Combat.TryMelee(record, zombie, target)
+        if attacked then
+            setCombatDebug(record, target, "attacking_melee", "mixed", equipmentInfo.weaponStatus)
+            return
         end
+        setCombatDebug(record, target, reason, "mixed", equipmentInfo.weaponStatus)
+        Core.LogRecordDebug(record, "NPC " .. tostring(record.id) .. " mixed melee blocked=" .. tostring(reason))
+        return
     end
+
+    attacked, reason = Combat.TryRanged(record, zombie, target)
+    if attacked then
+        setCombatDebug(record, target, "attacking_ranged", "mixed", equipmentInfo.weaponStatus)
+        return
+    end
+    if reason == "target_out_of_range" then
+        moveRecord(record, zombie, target.x, target.y, target.z, "run", Const.RANGED_RANGE * 0.85)
+        setCombatDebug(record, target, "closing_to_range", "mixed", equipmentInfo.weaponStatus)
+        return
+    end
+    setCombatDebug(record, target, reason, "mixed", equipmentInfo.weaponStatus)
+    Core.LogRecordDebug(record, "NPC " .. tostring(record.id) .. " mixed ranged blocked=" .. tostring(reason))
 end
 
 function Behavior.Tick(record, zombie, now)
@@ -92,7 +205,7 @@ function Behavior.Tick(record, zombie, now)
     if record.alive == false then
         record.activeJob = "Dead"
         record.activeBehavior = "Dead"
-        record.runtime.target = nil
+        clearCombatTarget(record, "dead")
         if zombie then
             PNC.Animation.Apply(zombie, record, "Idle")
         end
@@ -102,7 +215,7 @@ function Behavior.Tick(record, zombie, now)
     if record.health and record.health.state == "incapacitated" then
         record.activeJob = "Incapacitated"
         record.activeBehavior = "Incapacitated"
-        record.runtime.target = nil
+        clearCombatTarget(record, "incapacitated")
         if zombie then
             PathService.Reset(zombie, record)
             PNC.Animation.Apply(zombie, record, "Idle")
@@ -126,18 +239,23 @@ function Behavior.Tick(record, zombie, now)
             record.ownerOnlineID = owner:getOnlineID()
             ownerDist = Core.Distance(record.x, record.y, owner:getX(), owner:getY())
             if ownerDist <= Const.FOLLOW_DISTANCE and math.abs(owner:getZ() - record.z) < 1 then
+                clearCombatTarget(record, "holding_follow_position")
                 if zombie then
+                    PathService.Reset(zombie, record)
                     PNC.Animation.Apply(zombie, record, "Idle")
                 end
                 return
             end
             if ownerDist >= Const.FOLLOW_RUN_DISTANCE then
+                clearCombatTarget(record, "following_owner_run")
                 moveRecord(record, zombie, owner:getX(), owner:getY(), owner:getZ(), "run", Const.FOLLOW_DISTANCE)
                 return
             end
+            clearCombatTarget(record, "following_owner_walk")
             moveRecord(record, zombie, owner:getX(), owner:getY(), owner:getZ(), "walk", Const.FOLLOW_DISTANCE)
             return
         end
+        clearCombatTarget(record, "owner_missing_return_anchor")
         moveRecord(record, zombie, record.anchorX, record.anchorY, record.anchorZ, "walk", 0.8)
         return
     end
@@ -149,6 +267,7 @@ function Behavior.Tick(record, zombie, now)
             tickEngage(record, zombie, target)
             return
         end
+        clearCombatTarget(record, "guarding_anchor")
         moveRecord(record, zombie, tonumber(order.x) or record.anchorX, tonumber(order.y) or record.anchorY, tonumber(order.z) or record.anchorZ, "walk", Const.GUARD_RADIUS)
         return
     end
@@ -162,6 +281,7 @@ function Behavior.Tick(record, zombie, now)
         end
         patrolPoints = order.points or record.patrolPoints or {}
         if #patrolPoints <= 0 then
+            clearCombatTarget(record, "patrol_missing_points")
             moveRecord(record, zombie, record.anchorX, record.anchorY, record.anchorZ, "walk", 0.8)
             return
         end
@@ -176,6 +296,7 @@ function Behavior.Tick(record, zombie, now)
                 point = patrolPoints[record.patrolIndex]
             end
             if point then
+                clearCombatTarget(record, "patrolling")
                 moveRecord(record, zombie, point.x, point.y, point.z, "walk", Const.PATROL_REACHED_DISTANCE)
             end
         end
@@ -189,6 +310,7 @@ function Behavior.Tick(record, zombie, now)
             tickEngage(record, zombie, target)
             return
         end
+        clearCombatTarget(record, "seeking_hostile_target")
         moveRecord(record, zombie, tonumber(order.x) or record.anchorX, tonumber(order.y) or record.anchorY, tonumber(order.z) or record.anchorZ, "walk", 2.0)
         return
     end
@@ -205,34 +327,19 @@ function Behavior.Tick(record, zombie, now)
             record.runtime.roamGoalY = (tonumber(order.y) or record.anchorY) + ZombRandFloat(-6, 6)
             record.runtime.roamGoalZ = tonumber(order.z) or record.anchorZ
         end
+        clearCombatTarget(record, "roaming")
         moveRecord(record, zombie, record.runtime.roamGoalX, record.runtime.roamGoalY, record.runtime.roamGoalZ, "walk", 1.0)
         return
     end
 
     if job == "EngageTarget" then
-        target = record.runtime.target
-        if target and target.kind == "npc" then
-            local targetRecord = Registry.Get(target.id)
-            if targetRecord and targetRecord.alive ~= false then
-                target.x = targetRecord.x
-                target.y = targetRecord.y
-                target.z = targetRecord.z
-                target.distSq = Core.DistanceSq(record.x, record.y, target.x, target.y)
-                tickEngage(record, zombie, target)
-                return
-            end
-        elseif target and target.kind == "player" then
-            target.player = Core.ResolvePlayerByOnlineID(target.onlineID) or Core.ResolvePlayerByUsername(target.username)
-            if target.player then
-                target.x = target.player:getX()
-                target.y = target.player:getY()
-                target.z = target.player:getZ()
-                target.distSq = Core.DistanceSq(record.x, record.y, target.x, target.y)
-                tickEngage(record, zombie, target)
-                return
-            end
+        target = updateTargetFromWorld(record, record.runtime.target)
+        if target then
+            record.runtime.target = target
+            tickEngage(record, zombie, target)
+            return
         end
-        record.runtime.target = nil
+        clearCombatTarget(record, "target_lost")
         return
     end
 end
