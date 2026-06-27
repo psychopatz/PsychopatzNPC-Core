@@ -113,6 +113,12 @@ local function updateTargetFromWorld(record, target)
     return nil
 end
 
+local function haltMovement(record, zombie)
+    if zombie and PathService and PathService.Reset then
+        PathService.Reset(zombie, record)
+    end
+end
+
 local function tickEngage(record, zombie, target)
     local dist = math.sqrt(tonumber(target and target.distSq or 0) or 0)
     local equipmentInfo = Equipment.Describe(record)
@@ -129,8 +135,9 @@ local function tickEngage(record, zombie, target)
     end
 
     if zombie then
-        if effectiveMode == "ranged" or effectiveMode == "mixed" then
-            PNC.Animation.Apply(zombie, record, dist > Const.MELEE_RANGE and "Run" or "Walk")
+        if dist <= Const.MELEE_RANGE * 1.1 then
+            haltMovement(record, zombie)
+            PNC.Animation.Apply(zombie, record, "Idle")
         else
             PNC.Animation.Apply(zombie, record, dist > Const.MELEE_RANGE and "Run" or "Walk")
         end
@@ -139,6 +146,7 @@ local function tickEngage(record, zombie, target)
     if effectiveMode == "melee" then
         attacked, reason = Combat.TryMelee(record, zombie, target)
         if attacked then
+            haltMovement(record, zombie)
             setCombatDebug(record, target, "attacking_melee", effectiveMode, equipmentInfo.weaponStatus)
             return
         end
@@ -155,6 +163,7 @@ local function tickEngage(record, zombie, target)
     if effectiveMode == "ranged" then
         attacked, reason = Combat.TryRanged(record, zombie, target)
         if attacked then
+            haltMovement(record, zombie)
             setCombatDebug(record, target, "attacking_ranged", effectiveMode, equipmentInfo.weaponStatus)
             return
         end
@@ -171,6 +180,7 @@ local function tickEngage(record, zombie, target)
     if dist <= Const.MELEE_RANGE * 1.1 then
         attacked, reason = Combat.TryMelee(record, zombie, target)
         if attacked then
+            haltMovement(record, zombie)
             setCombatDebug(record, target, "attacking_melee", "mixed", equipmentInfo.weaponStatus)
             return
         end
@@ -181,6 +191,7 @@ local function tickEngage(record, zombie, target)
 
     attacked, reason = Combat.TryRanged(record, zombie, target)
     if attacked then
+        haltMovement(record, zombie)
         setCombatDebug(record, target, "attacking_ranged", "mixed", equipmentInfo.weaponStatus)
         return
     end

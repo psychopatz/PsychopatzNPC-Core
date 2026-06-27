@@ -107,6 +107,14 @@ function Animation.Apply(zombie, record, animState)
         if zombie.setWalkType then
             zombie:setWalkType(animState)
         end
+    elseif animState == "Attack" then
+        zombie:setVariable("PNCWalkType", "")
+        if zombie.setWalkType then
+            zombie:setWalkType("Walk")
+        end
+        if zombie.setRunning then
+            zombie:setRunning(false)
+        end
     elseif animState == "Idle" then
         if previousWalkType == "Run" and zombie.setBumpType then
             zombie:setBumpType("RunToIdle")

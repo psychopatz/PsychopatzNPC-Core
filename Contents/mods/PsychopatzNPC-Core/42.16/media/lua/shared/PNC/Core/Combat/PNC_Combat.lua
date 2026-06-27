@@ -9,6 +9,7 @@ local Health = PNC.Health
 local Animation = PNC.Animation
 local Equipment = PNC.Equipment
 local Perception = PNC.Perception
+local ZombieAggro = PNC.ZombieAggro
 
 local function faceTarget(zombie, target)
     local liveTarget
@@ -58,6 +59,8 @@ local function applyDamageToZombie(record, attackerZombie, target, damage, attac
     local weaponItem
     local ok
     local health
+    local scaledDamage
+    local applied = false
 
     if not victim or victim:isDead() then
         return false, "invalid_zombie_target"
@@ -75,22 +78,29 @@ local function applyDamageToZombie(record, attackerZombie, target, damage, attac
 
     weaponItem = resolveWeaponItem(record)
     fakeZombie = getCell and getCell():getFakeZombieForHit() or nil
+    if attackType == "ranged" then
+        scaledDamage = math.max(0.12, (tonumber(damage) or 0) * 0.06)
+    else
+        scaledDamage = math.max(0.18, (tonumber(damage) or 0) * 0.08)
+    end
     if weaponItem and victim.Hit then
         ok = pcall(function()
-            victim:Hit(weaponItem, fakeZombie or attackerZombie, (tonumber(damage) or 0) / 100, false, 1, false)
+            victim:Hit(weaponItem, fakeZombie or attackerZombie, scaledDamage, false, 1, false)
         end)
         if ok then
-            return true, "hit_zombie"
+            applied = true
         end
     end
 
-    health = tonumber(victim:getHealth()) or 1
-    victim:setHealth(health - ((tonumber(damage) or 0) / 100))
-    if victim:getHealth() <= 0 then
-        if victim.Kill then
-            victim:Kill(attackerZombie or fakeZombie)
-        elseif victim.setHealth then
-            victim:setHealth(0)
+    if not applied then
+        health = tonumber(victim:getHealth()) or 1
+        victim:setHealth(health - scaledDamage)
+        if victim:getHealth() <= 0 then
+            if victim.Kill then
+                victim:Kill(attackerZombie or fakeZombie)
+            elseif victim.setHealth then
+                victim:setHealth(0)
+            end
         end
     end
     if attackType == "ranged" and victim.setHitReaction then
@@ -98,7 +108,12 @@ local function applyDamageToZombie(record, attackerZombie, target, damage, attac
     elseif victim.setHitReaction then
         victim:setHitReaction("HitReaction")
     end
-    return true, "hit_zombie_fallback"
+    if ZombieAggro and ZombieAggro.OnZombieProvoked and attackerZombie then
+        ZombieAggro.OnZombieProvoked(victim, attackerZombie)
+    elseif attackerZombie and victim.pathToCharacter then
+        victim:pathToCharacter(attackerZombie)
+    end
+    return true, applied and "hit_zombie" or "hit_zombie_fallback"
 end
 
 function Combat.TryMelee(record, zombie, target)
