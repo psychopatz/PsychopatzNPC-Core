@@ -1,0 +1,5 @@
+version=1
+title=Psychopatz NPC Core
+description=Standalone NPC framework core for Project Zomboid Build 42.<LINE><LINE>Includes server-authoritative companion and hostile NPC foundations, live/abstract presence transitions, shared combat/health systems, and debug tooling.
+tags=Build 42;Framework;Multiplayer;Server;WIP
+visibility=private

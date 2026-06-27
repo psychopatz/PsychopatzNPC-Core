@@ -1,0 +1,49 @@
+PNC = PNC or {}
+PNC.Const = PNC.Const or {}
+
+local Const = PNC.Const
+
+Const.MOD_ID = "PsychopatzNPC-Core"
+Const.MODULE = "PNC"
+Const.MODDATA_KEY = "PNC_Core_Global"
+
+Const.CMD_FULL_SYNC_REQUEST = "RequestFullSync"
+Const.CMD_FULL_SYNC = "FullSync"
+Const.CMD_SYNC_RECORD = "SyncRecord"
+Const.CMD_REMOVE_RECORD = "RemoveRecord"
+Const.CMD_DEBUG = "DebugCommand"
+
+Const.PRESENCE_LIVE = "live"
+Const.PRESENCE_ABSTRACT = "abstract"
+Const.PRESENCE_CORPSE = "corpse"
+
+Const.ORDER_FOLLOW = "follow"
+Const.ORDER_GUARD = "guard"
+Const.ORDER_PATROL = "patrol"
+Const.ORDER_HOSTILE_ROAM = "hostile_roam"
+Const.ORDER_HOSTILE_HUNT = "hostile_hunt"
+
+Const.TICK_LIVE_HOT_MS = 100
+Const.TICK_LIVE_WARM_MS = 250
+Const.TICK_LIVE_COLD_MS = 1000
+Const.TICK_ABSTRACT_MS = 3000
+
+Const.MATERIALIZE_DISTANCE = 28
+Const.ABSTRACT_DISTANCE = 40
+Const.SPATIAL_CELL_SIZE = 16
+
+Const.MELEE_RANGE = 1.3
+Const.RANGED_RANGE = 8.5
+Const.GUARD_RADIUS = 3.0
+Const.FOLLOW_DISTANCE = 1.8
+Const.FOLLOW_WALK_DISTANCE = 4.0
+Const.FOLLOW_RUN_DISTANCE = 8.0
+Const.PATROL_REACHED_DISTANCE = 0.8
+
+Const.LIVE_WALK_STEP = 0.09
+Const.LIVE_RUN_STEP = 0.14
+Const.ABSTRACT_TRAVEL_STEP = 5.0
+
+Const.DOWNED_TIMEOUT_MS = 30000
+Const.DEFAULT_HP_MAX = 100
+Const.DEFAULT_ENGINE_BUFFER = 2

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<outfitManager>
+	<m_MaleOutfits>
+		<m_Name>PNCCompanionMale</m_Name>
+		<m_Guid>ba73036c-4ca9-4ae3-b50d-d339d9c47e11</m_Guid>
+		<m_Top>true</m_Top>
+		<m_Pants>true</m_Pants>
+		<m_AllowPantsHue>false</m_AllowPantsHue>
+		<m_AllowTopTint>false</m_AllowTopTint>
+		<m_AllowTShirtDecal>false</m_AllowTShirtDecal>
+	</m_MaleOutfits>
+	<m_MaleOutfits>
+		<m_Name>PNCHostileMale</m_Name>
+		<m_Guid>21470ef9-3b9f-47d8-bfdd-5cb4c70fc12a</m_Guid>
+		<m_Top>true</m_Top>
+		<m_Pants>true</m_Pants>
+		<m_AllowPantsHue>false</m_AllowPantsHue>
+		<m_AllowTopTint>false</m_AllowTopTint>
+		<m_AllowTShirtDecal>false</m_AllowTShirtDecal>
+	</m_MaleOutfits>
+	<m_FemaleOutfits>
+		<m_Name>PNCCompanionFemale</m_Name>
+		<m_Guid>f2672f1f-55eb-4c2f-a60b-5a9aa0307062</m_Guid>
+		<m_Top>true</m_Top>
+		<m_Pants>true</m_Pants>
+		<m_AllowPantsHue>false</m_AllowPantsHue>
+		<m_AllowTopTint>false</m_AllowTopTint>
+		<m_AllowTShirtDecal>false</m_AllowTShirtDecal>
+	</m_FemaleOutfits>
+	<m_FemaleOutfits>
+		<m_Name>PNCHostileFemale</m_Name>
+		<m_Guid>032bb209-4c22-4272-8556-a4e2d166e69a</m_Guid>
+		<m_Top>true</m_Top>
+		<m_Pants>true</m_Pants>
+		<m_AllowPantsHue>false</m_AllowPantsHue>
+		<m_AllowTopTint>false</m_AllowTopTint>
+		<m_AllowTShirtDecal>false</m_AllowTShirtDecal>
+	</m_FemaleOutfits>
+</outfitManager>
