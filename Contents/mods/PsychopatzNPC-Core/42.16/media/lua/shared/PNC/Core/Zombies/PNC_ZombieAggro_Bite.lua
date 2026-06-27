@@ -6,6 +6,7 @@ local Core = PNC.Core
 local Const = PNC.Const
 local Registry = PNC.Registry
 local Health = PNC.Health
+local Equipment = PNC.Equipment
 
 local State = ZombieAggro.State
 local Internal = ZombieAggro.Internal
@@ -129,8 +130,8 @@ function ZombieAggro.UpdateBiteState(zombie, now)
                 elseif zombie.playSound then
                     zombie:playSound("ZombieScratch")
                 end
-                if InventoryItemFactory and InventoryItemFactory.CreateItem then
-                    teeth = InventoryItemFactory.CreateItem("Base.RollingPin")
+                if Equipment and Equipment.CreateItem then
+                    teeth = Equipment.CreateItem("Base.RollingPin")
                 end
                 if npcBody.setHitFromBehind and zombie.isBehind then
                     npcBody:setHitFromBehind(zombie:isBehind(npcBody))

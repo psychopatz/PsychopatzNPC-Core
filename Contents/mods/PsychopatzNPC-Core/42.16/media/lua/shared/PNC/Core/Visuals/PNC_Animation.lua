@@ -130,3 +130,27 @@ function Animation.Apply(zombie, record, animState)
         end
     end
 end
+
+function Animation.PlayBump(zombie, record, bumpType)
+    if not zombie then
+        return
+    end
+    if record then
+        zombie:setVariable("PNC", true)
+        zombie:setVariable("PNCState", tostring(record.activeBehavior or record.activeJob or "Idle"))
+        zombie:setVariable("PNCOrder", tostring(record.orderSpec and record.orderSpec.kind or "none"))
+        zombie:setVariable("PNCPresence", tostring(record.presenceState or "unknown"))
+        zombie:setVariable("PNCAnim", tostring(bumpType or "Bump"))
+        zombie:setVariable("PNCWeaponMode", tostring(record.weaponMode or "melee"))
+    end
+    zombie:setVariable("PNCWalkType", "")
+    if zombie.setWalkType then
+        zombie:setWalkType("Walk")
+    end
+    if zombie.setRunning then
+        zombie:setRunning(false)
+    end
+    if zombie.setBumpType then
+        zombie:setBumpType(tostring(bumpType or "Bump"))
+    end
+end

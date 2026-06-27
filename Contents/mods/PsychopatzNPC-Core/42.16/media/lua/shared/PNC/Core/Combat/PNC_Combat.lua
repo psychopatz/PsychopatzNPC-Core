@@ -10,6 +10,7 @@ local Animation = PNC.Animation
 local Equipment = PNC.Equipment
 local Perception = PNC.Perception
 local ZombieAggro = PNC.ZombieAggro
+local Unarmed = PNC.CombatUnarmed
 
 local function faceTarget(zombie, target)
     local liveTarget
@@ -47,10 +48,15 @@ end
 
 local function resolveWeaponItem(record)
     local fullType = record and record.equipment and record.equipment.primaryFullType or nil
-    if not fullType or not InventoryItemFactory or not InventoryItemFactory.CreateItem then
+    local item
+    local _
+    if not fullType then
         return nil
     end
-    return InventoryItemFactory.CreateItem(fullType)
+    if Equipment.CreateItem then
+        item, _ = Equipment.CreateItem(fullType)
+    end
+    return item
 end
 
 local function applyDamageToZombie(record, attackerZombie, target, damage, attackType)
@@ -123,6 +129,8 @@ function Combat.TryMelee(record, zombie, target)
     local damage = tonumber(profile.meleeDamage) or 10
     local dist
     local targetRecord
+    local equipmentInfo = Equipment.Describe(record)
+    local zombieTarget
 
     if not target then
         return false, "no_target"
@@ -144,6 +152,9 @@ function Combat.TryMelee(record, zombie, target)
     end
 
     if target.kind == "player" then
+        if equipmentInfo.primaryType == "barehand" and Animation and Animation.PlayBump then
+            Animation.PlayBump(zombie, record, "Shove")
+        end
         if Health.ApplyDamageToPlayer(target.player, damage) then
             return true, "hit_player"
         end
@@ -153,6 +164,9 @@ function Combat.TryMelee(record, zombie, target)
     if target.kind == "npc" then
         targetRecord = Registry.Get(target.id)
         if targetRecord then
+            if equipmentInfo.primaryType == "barehand" and Animation and Animation.PlayBump then
+                Animation.PlayBump(zombie, record, "Shove")
+            end
             if Health.ApplyDamage(targetRecord, Registry.GetLiveZombie(target.id), {
                 amount = damage,
                 type = "melee",
@@ -167,6 +181,22 @@ function Combat.TryMelee(record, zombie, target)
     end
 
     if target.kind == "zombie" then
+        zombieTarget = Perception.FindZombieByID and Perception.FindZombieByID(target.zombieId) or nil
+        if equipmentInfo.primaryType == "barehand" and zombieTarget then
+            if Unarmed and Unarmed.IsGroundTarget and Unarmed.IsGroundTarget(zombieTarget) then
+                if Unarmed.PlayGroundAttack then
+                    Unarmed.PlayGroundAttack(zombie, record, zombieTarget)
+                end
+                return applyDamageToZombie(record, zombie, target, damage, "melee")
+            end
+            if Unarmed and Unarmed.PlayShove then
+                Unarmed.PlayShove(zombie, record, zombieTarget)
+            end
+            if Unarmed and Unarmed.ApplyZombieShove and Unarmed.ApplyZombieShove(zombie, zombieTarget) then
+                return true, "shoved_zombie"
+            end
+            return false, "zombie_shove_failed"
+        end
         return applyDamageToZombie(record, zombie, target, damage, "melee")
     end
 

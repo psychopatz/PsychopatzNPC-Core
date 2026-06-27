@@ -8,6 +8,7 @@ local resolveModeFromPrimaryType
 local function buildWeaponDescriptor(fullType)
     local item
     local primaryType
+    local createReason
     if not fullType or fullType == "" then
         return {
             fullType = nil,
@@ -20,19 +21,7 @@ local function buildWeaponDescriptor(fullType)
         }
     end
 
-    if not InventoryItemFactory or not InventoryItemFactory.CreateItem then
-        return {
-            fullType = fullType,
-            primaryType = "barehand",
-            resolvedMode = "melee",
-            hasWeapon = false,
-            hasUsableFirearm = false,
-            weaponStatus = "item_factory_unavailable",
-            item = nil,
-        }
-    end
-
-    item = InventoryItemFactory.CreateItem(fullType)
+    item, createReason = Equipment.CreateItem(fullType)
     if not item then
         return {
             fullType = fullType,
@@ -40,7 +29,8 @@ local function buildWeaponDescriptor(fullType)
             resolvedMode = "melee",
             hasWeapon = false,
             hasUsableFirearm = false,
-            weaponStatus = "invalid_full_type",
+            weaponStatus = createReason or "invalid_full_type",
+            createReason = createReason or "invalid_full_type",
             item = nil,
         }
     end
@@ -53,6 +43,7 @@ local function buildWeaponDescriptor(fullType)
         hasWeapon = item.IsWeapon and item:IsWeapon() or false,
         hasUsableFirearm = primaryType == "rifle" or primaryType == "handgun",
         weaponStatus = primaryType == "barehand" and "barehand" or ("equipped_" .. tostring(primaryType)),
+        createReason = createReason or "unknown",
         item = item,
     }
 end
@@ -161,7 +152,7 @@ function Equipment.Apply(zombie, record)
     if zombie.resetEquippedHandsModels then
         zombie:resetEquippedHandsModels()
     end
-    return true, descriptor.weaponStatus
+    return true, descriptor.weaponStatus .. ":" .. tostring(descriptor.createReason or "unknown")
 end
 
 function Equipment.SetPrimary(record, fullType)
@@ -196,7 +187,7 @@ function Equipment.Describe(record)
             weaponStatus = "ranged_ready"
         else
             combatModeResolved = "melee"
-            if descriptor.weaponStatus == "invalid_full_type" or descriptor.weaponStatus == "item_factory_unavailable" then
+            if descriptor.weaponStatus ~= "barehand" and descriptor.hasWeapon ~= true and descriptor.fullType then
                 weaponStatus = descriptor.weaponStatus .. "_fallback_melee"
             elseif descriptor.fullType and descriptor.hasWeapon then
                 weaponStatus = "ranged_missing_firearm_fallback_melee"
@@ -208,7 +199,7 @@ function Equipment.Describe(record)
         if descriptor.hasUsableFirearm then
             combatModeResolved = "mixed"
             weaponStatus = "mixed_ranged_ready"
-        elseif descriptor.weaponStatus == "invalid_full_type" or descriptor.weaponStatus == "item_factory_unavailable" then
+        elseif descriptor.weaponStatus ~= "barehand" and descriptor.hasWeapon ~= true and descriptor.fullType then
             combatModeResolved = "melee"
             weaponStatus = descriptor.weaponStatus .. "_fallback_melee"
         elseif descriptor.hasWeapon then
