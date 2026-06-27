@@ -10,6 +10,7 @@ local Combat = PNC.Combat
 local PathService = PNC.PathService
 local JobSystem = PNC.JobSystem
 local Equipment = PNC.Equipment
+local Stealth = PNC.Stealth
 
 local function setCombatDebug(record, target, reason, modeResolved, weaponStatus)
     record.runtime.targetKind = target and target.kind or "none"
@@ -212,6 +213,7 @@ function Behavior.Tick(record, zombie, now)
     local target
     local patrolPoints
     local ownerDist
+    local moveMode
 
     if record.alive == false then
         record.activeJob = "Dead"
@@ -239,6 +241,9 @@ function Behavior.Tick(record, zombie, now)
 
     if job == "FollowOwner" then
         owner = getOwner(record)
+        if Stealth and Stealth.UpdateFollowState then
+            Stealth.UpdateFollowState(record, owner)
+        end
         target = Perception.ResolveCompanionTarget(record)
         if target then
             record.runtime.target = target
@@ -250,21 +255,20 @@ function Behavior.Tick(record, zombie, now)
             record.ownerOnlineID = owner:getOnlineID()
             ownerDist = Core.Distance(record.x, record.y, owner:getX(), owner:getY())
             if ownerDist <= Const.FOLLOW_DISTANCE and math.abs(owner:getZ() - record.z) < 1 then
-                clearCombatTarget(record, "holding_follow_position")
+                clearCombatTarget(record, record.runtime.stealthActive and "holding_follow_stealth" or "holding_follow_position")
                 if zombie then
                     PathService.Reset(zombie, record)
-                    PNC.Animation.Apply(zombie, record, "Idle")
+                    PNC.Animation.Apply(zombie, record, record.runtime.stealthActive and "SneakWalk" or "Idle")
                 end
                 return
             end
-            if ownerDist >= Const.FOLLOW_RUN_DISTANCE then
-                clearCombatTarget(record, "following_owner_run")
-                moveRecord(record, zombie, owner:getX(), owner:getY(), owner:getZ(), "run", Const.FOLLOW_DISTANCE)
-                return
-            end
-            clearCombatTarget(record, "following_owner_walk")
-            moveRecord(record, zombie, owner:getX(), owner:getY(), owner:getZ(), "walk", Const.FOLLOW_DISTANCE)
+            moveMode = Stealth and Stealth.ResolveFollowMoveMode and Stealth.ResolveFollowMoveMode(record, owner, ownerDist) or (ownerDist >= Const.FOLLOW_RUN_DISTANCE and "run" or "walk")
+            clearCombatTarget(record, moveMode == "sneak" and "following_owner_sneak" or ("following_owner_" .. tostring(moveMode)))
+            moveRecord(record, zombie, owner:getX(), owner:getY(), owner:getZ(), moveMode, Const.FOLLOW_DISTANCE)
             return
+        end
+        if Stealth and Stealth.Clear then
+            Stealth.Clear(record, "owner_missing")
         end
         clearCombatTarget(record, "owner_missing_return_anchor")
         moveRecord(record, zombie, record.anchorX, record.anchorY, record.anchorZ, "walk", 0.8)

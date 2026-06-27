@@ -125,12 +125,13 @@ end
 function Combat.TryMelee(record, zombie, target)
     local now = Core.Now()
     local profile = record.combatProfile or {}
-    local cooldownMs = tonumber(profile.meleeCooldownMs) or 900
     local damage = tonumber(profile.meleeDamage) or 10
     local dist
     local targetRecord
     local equipmentInfo = Equipment.Describe(record)
     local zombieTarget
+    local isBarehand = equipmentInfo.primaryType == "barehand"
+    local cooldownMs = isBarehand and (tonumber(profile.unarmedCooldownMs) or Const.UNARMED_COOLDOWN_MS) or (tonumber(profile.meleeCooldownMs) or 900)
 
     if not target then
         return false, "no_target"
@@ -155,6 +156,9 @@ function Combat.TryMelee(record, zombie, target)
         if equipmentInfo.primaryType == "barehand" and Animation and Animation.PlayBump then
             Animation.PlayBump(zombie, record, "Shove")
         end
+        if isBarehand then
+            damage = tonumber(profile.unarmedDamage) or Const.UNARMED_DAMAGE
+        end
         if Health.ApplyDamageToPlayer(target.player, damage) then
             return true, "hit_player"
         end
@@ -166,6 +170,9 @@ function Combat.TryMelee(record, zombie, target)
         if targetRecord then
             if equipmentInfo.primaryType == "barehand" and Animation and Animation.PlayBump then
                 Animation.PlayBump(zombie, record, "Shove")
+            end
+            if isBarehand then
+                damage = tonumber(profile.unarmedDamage) or Const.UNARMED_DAMAGE
             end
             if Health.ApplyDamage(targetRecord, Registry.GetLiveZombie(target.id), {
                 amount = damage,
@@ -184,6 +191,7 @@ function Combat.TryMelee(record, zombie, target)
         zombieTarget = Perception.FindZombieByID and Perception.FindZombieByID(target.zombieId) or nil
         if equipmentInfo.primaryType == "barehand" and zombieTarget then
             if Unarmed and Unarmed.IsGroundTarget and Unarmed.IsGroundTarget(zombieTarget) then
+                damage = tonumber(profile.unarmedGroundDamage) or Const.UNARMED_GROUND_DAMAGE
                 if Unarmed.PlayGroundAttack then
                     Unarmed.PlayGroundAttack(zombie, record, zombieTarget)
                 end

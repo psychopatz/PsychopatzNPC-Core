@@ -102,7 +102,7 @@ function Animation.Apply(zombie, record, animState)
     zombie:setVariable("PNCPresence", tostring(record.presenceState or "unknown"))
     zombie:setVariable("PNCAnim", tostring(animState or "Idle"))
     zombie:setVariable("PNCWeaponMode", tostring(record.weaponMode or "melee"))
-    if animState == "Run" or animState == "Walk" then
+    if animState == "Run" or animState == "Walk" or animState == "SneakWalk" then
         zombie:setVariable("PNCWalkType", animState)
         if zombie.setWalkType then
             zombie:setWalkType(animState)
@@ -118,7 +118,7 @@ function Animation.Apply(zombie, record, animState)
     elseif animState == "Idle" then
         if previousWalkType == "Run" and zombie.setBumpType then
             zombie:setBumpType("RunToIdle")
-        elseif previousWalkType == "Walk" and zombie.setBumpType then
+        elseif (previousWalkType == "Walk" or previousWalkType == "SneakWalk") and zombie.setBumpType then
             zombie:setBumpType("WalkToIdle")
         end
         zombie:setVariable("PNCWalkType", "")

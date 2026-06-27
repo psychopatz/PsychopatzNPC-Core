@@ -5,6 +5,7 @@ local ZombieAggro = PNC.ZombieAggro
 local Core = PNC.Core
 local Const = PNC.Const
 local Registry = PNC.Registry
+local Stealth = PNC.Stealth
 
 local Internal = ZombieAggro.Internal
 
@@ -83,25 +84,34 @@ function ZombieAggro.Pump(now)
                         npcBody = target
                         record = Registry.FindRecordByZombie(npcBody)
                         if record and record.alive ~= false and record.presenceState == Const.PRESENCE_LIVE then
-                            distSq = Core.DistanceSq(zombie:getX(), zombie:getY(), npcBody:getX(), npcBody:getY())
-                            dist = math.sqrt(distSq)
-                            if zombie.setVariable then
-                                zombie:setVariable("NoLungeAttack", dist <= Const.ZOMBIE_AGGRO_KEEP_RADIUS)
-                            end
-                            if dist < Const.ZOMBIE_BITE_DISTANCE and math.abs(zombie:getZ() - npcBody:getZ()) < 0.3 then
-                                if zombie.getSquare and npcBody.getSquare and zombie:getSquare() and npcBody:getSquare()
-                                    and not zombie:getSquare():isSomethingTo(npcBody:getSquare())
-                                then
-                                    if zombie.isFacingObject and zombie:isFacingObject(npcBody, 0.3) then
-                                        ZombieAggro.TryStartBite(zombie, npcBody, record)
-                                    elseif zombie.faceThisObject then
-                                        zombie:faceThisObject(npcBody)
-                                    end
+                            if Stealth and Stealth.ShouldSuppressZombieAggro and Stealth.ShouldSuppressZombieAggro(record) then
+                                Internal.clearZombieTarget(zombie)
+                                ZombieAggro.ClearBiteEntryForZombie(zombie)
+                                if zombie.setVariable then
+                                    zombie:setVariable("NoLungeAttack", false)
                                 end
-                            elseif npcBody and zombie.pathToCharacter then
-                                zombie:pathToCharacter(npcBody)
-                            elseif npcBody and zombie.pathToLocation then
-                                zombie:pathToLocation(npcBody:getX(), npcBody:getY(), npcBody:getZ())
+                                record.runtime.combatBlockReason = "follow_stealth_hidden"
+                            else
+                                distSq = Core.DistanceSq(zombie:getX(), zombie:getY(), npcBody:getX(), npcBody:getY())
+                                dist = math.sqrt(distSq)
+                                if zombie.setVariable then
+                                    zombie:setVariable("NoLungeAttack", dist <= Const.ZOMBIE_AGGRO_KEEP_RADIUS)
+                                end
+                                if dist < Const.ZOMBIE_BITE_DISTANCE and math.abs(zombie:getZ() - npcBody:getZ()) < 0.3 then
+                                    if zombie.getSquare and npcBody.getSquare and zombie:getSquare() and npcBody:getSquare()
+                                        and not zombie:getSquare():isSomethingTo(npcBody:getSquare())
+                                    then
+                                        if zombie.isFacingObject and zombie:isFacingObject(npcBody, 0.3) then
+                                            ZombieAggro.TryStartBite(zombie, npcBody, record)
+                                        elseif zombie.faceThisObject then
+                                            zombie:faceThisObject(npcBody)
+                                        end
+                                    end
+                                elseif npcBody and zombie.pathToCharacter then
+                                    zombie:pathToCharacter(npcBody)
+                                elseif npcBody and zombie.pathToLocation then
+                                    zombie:pathToLocation(npcBody:getX(), npcBody:getY(), npcBody:getZ())
+                                end
                             end
                         else
                             Internal.clearZombieTarget(zombie)

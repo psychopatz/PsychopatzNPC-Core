@@ -29,7 +29,12 @@ local function isSquareWalkable(x, y, z)
 end
 
 local function setWalkAnim(zombie, record, mode)
-    local walkType = mode == "run" and "Run" or "Walk"
+    local walkType = "Walk"
+    if mode == "run" then
+        walkType = "Run"
+    elseif mode == "sneak" then
+        walkType = "SneakWalk"
+    end
     if zombie.setVariable then
         zombie:setVariable("PNCWalkType", walkType)
     end
@@ -350,7 +355,7 @@ function PathService.MoveToward(record, zombie, targetX, targetY, targetZ, mode,
     dist = Core.Distance(zx, zy, targetX, targetY)
     if dist <= stopDistance and zz == targetZ then
         PathService.Reset(zombie, record)
-        Animation.Apply(zombie, record, "Idle")
+        Animation.Apply(zombie, record, mode == "sneak" and "SneakWalk" or "Idle")
         return true, "arrived"
     end
 
@@ -368,7 +373,7 @@ function PathService.Pump(record, zombie)
     end
     ok, reason = updatePathRequest(zombie, record)
     if reason == "arrived" or reason == "blocked" then
-        Animation.Apply(zombie, record, "Idle")
+        Animation.Apply(zombie, record, path.mode == "sneak" and "SneakWalk" or "Idle")
     end
     return ok, reason
 end

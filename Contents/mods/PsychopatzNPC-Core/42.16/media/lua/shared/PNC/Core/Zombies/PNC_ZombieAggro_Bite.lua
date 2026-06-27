@@ -84,7 +84,10 @@ function ZombieAggro.TryStartBite(zombie, npcBody, record)
     State.bites[zombieId] = {
         npcId = record.id,
         npcBody = npcBody,
-        tick = 0,
+        startedAt = Core.Now(),
+        applyAt = Core.Now() + Const.ZOMBIE_BITE_APPLY_DELAY_MS,
+        clearAt = Core.Now() + Const.ZOMBIE_BITE_CLEAR_DELAY_MS,
+        appliedDamage = false,
     }
     Core.LogRecordDebug(record, "Zombie " .. tostring(zombieId) .. " started bite on NPC " .. tostring(record.id))
     return true
@@ -95,11 +98,12 @@ function ZombieAggro.UpdateBiteState(zombie, now)
     local entry
     local record
     local npcBody
-    local asn
     local bumpType
-    local tick
     local dist
     local teeth
+    local startedAt
+    local applyAt
+    local clearAt
 
     if not zombie or zombie:isDead() then
         return false
@@ -118,58 +122,62 @@ function ZombieAggro.UpdateBiteState(zombie, now)
         return true
     end
 
-    asn = zombie.getActionStateName and zombie:getActionStateName() or ""
     bumpType = zombie.getBumpType and zombie:getBumpType() or ""
-    if (bumpType == "Bite" or bumpType == "BiteLow") and asn == "bumped" then
-        tick = tonumber(entry.tick or 0) or 0
-        if tick == Const.ZOMBIE_BITE_APPLY_TICK then
-            dist = Core.Distance(zombie:getX(), zombie:getY(), npcBody:getX(), npcBody:getY())
-            if dist < Const.ZOMBIE_BITE_DISTANCE then
-                if ZombRand(4) == 1 and zombie.playSound then
-                    zombie:playSound("ZombieBite")
-                elseif zombie.playSound then
-                    zombie:playSound("ZombieScratch")
-                end
-                if Equipment and Equipment.CreateItem then
-                    teeth = Equipment.CreateItem("Base.RollingPin")
-                end
-                if npcBody.setHitFromBehind and zombie.isBehind then
-                    npcBody:setHitFromBehind(zombie:isBehind(npcBody))
-                end
-                if npcBody.setPlayerAttackPosition and npcBody.testDotSide then
-                    npcBody:setPlayerAttackPosition(npcBody:testDotSide(zombie))
-                end
-                record.runtime.target = {
-                    kind = "zombie",
-                    zombieId = zombieId,
-                    x = zombie:getX(),
-                    y = zombie:getY(),
-                    z = zombie:getZ(),
-                    distSq = Core.DistanceSq(zombie:getX(), zombie:getY(), npcBody:getX(), npcBody:getY()),
-                }
-                record.runtime.targetKind = "zombie"
-                record.runtime.combatBlockReason = "under_zombie_bite"
-                if teeth and npcBody.Hit then
-                    pcall(function()
-                        npcBody:Hit(teeth, zombie, 1.01, false, 1, false)
-                    end)
-                end
-                Health.ApplyDamage(record, npcBody, {
-                    amount = Const.ZOMBIE_ATTACK_DAMAGE,
-                    type = "zombie_bite",
-                    attackerKind = "zombie",
-                })
-                Core.LogRecordDebug(record, "Zombie " .. tostring(zombieId) .. " applied bite to NPC " .. tostring(record.id))
-            end
-        elseif tick >= Const.ZOMBIE_BITE_CLEAR_TICK then
-            clearBiteEntry(zombieId, npcBody)
-            return true
-        end
-        entry.tick = tick + 1
+    startedAt = tonumber(entry.startedAt or now) or now
+    applyAt = tonumber(entry.applyAt or (startedAt + Const.ZOMBIE_BITE_APPLY_DELAY_MS)) or now
+    clearAt = tonumber(entry.clearAt or (startedAt + Const.ZOMBIE_BITE_CLEAR_DELAY_MS)) or now
+
+    dist = Core.Distance(zombie:getX(), zombie:getY(), npcBody:getX(), npcBody:getY())
+    if dist > (Const.ZOMBIE_BITE_DISTANCE * 1.35) then
+        clearBiteEntry(zombieId, npcBody)
         return true
     end
 
-    if bumpType ~= "Bite" and bumpType ~= "BiteLow" then
+    if entry.appliedDamage ~= true and now >= applyAt then
+        entry.appliedDamage = true
+        if ZombRand(4) == 1 and zombie.playSound then
+            zombie:playSound("ZombieBite")
+        elseif zombie.playSound then
+            zombie:playSound("ZombieScratch")
+        end
+        if Equipment and Equipment.CreateItem then
+            teeth = Equipment.CreateItem("Base.RollingPin")
+        end
+        if npcBody.setHitFromBehind and zombie.isBehind then
+            npcBody:setHitFromBehind(zombie:isBehind(npcBody))
+        end
+        if npcBody.setPlayerAttackPosition and npcBody.testDotSide then
+            npcBody:setPlayerAttackPosition(npcBody:testDotSide(zombie))
+        end
+        record.runtime.target = {
+            kind = "zombie",
+            zombieId = zombieId,
+            x = zombie:getX(),
+            y = zombie:getY(),
+            z = zombie:getZ(),
+            distSq = Core.DistanceSq(zombie:getX(), zombie:getY(), npcBody:getX(), npcBody:getY()),
+        }
+        record.runtime.targetKind = "zombie"
+        record.runtime.combatBlockReason = "under_zombie_bite"
+        if teeth and npcBody.Hit then
+            pcall(function()
+                npcBody:Hit(teeth, zombie, 1.01, false, 1, false)
+            end)
+        end
+        Health.ApplyDamage(record, npcBody, {
+            amount = Const.ZOMBIE_ATTACK_DAMAGE,
+            type = "zombie_bite",
+            attackerKind = "zombie",
+        })
+        Core.LogRecordDebug(record, "Zombie " .. tostring(zombieId) .. " applied bite to NPC " .. tostring(record.id))
+    end
+
+    if now >= clearAt then
+        clearBiteEntry(zombieId, npcBody)
+        return true
+    end
+
+    if bumpType ~= "Bite" and bumpType ~= "BiteLow" and now >= applyAt then
         clearBiteEntry(zombieId, npcBody)
     end
     return true

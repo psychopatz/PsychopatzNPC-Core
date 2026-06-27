@@ -5,6 +5,7 @@ local ZombieAggro = PNC.ZombieAggro
 local Core = PNC.Core
 local Const = PNC.Const
 local Registry = PNC.Registry
+local Stealth = PNC.Stealth
 
 ZombieAggro.State = ZombieAggro.State or {
     bites = {},
@@ -91,6 +92,7 @@ function Internal.findNearestLiveNPC(zombie, radius)
             and record
             and record.alive ~= false
             and record.presenceState == Const.PRESENCE_LIVE
+            and not (Stealth and Stealth.ShouldSuppressZombieAggro and Stealth.ShouldSuppressZombieAggro(record))
             and math.abs(npcBody:getZ() - zz) < 1
         then
             distSq = Core.DistanceSq(zx, zy, npcBody:getX(), npcBody:getY())

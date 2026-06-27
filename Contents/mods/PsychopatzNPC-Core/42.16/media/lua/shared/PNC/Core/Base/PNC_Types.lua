@@ -94,6 +94,9 @@ function Types.NewRecord(definition)
             rangedDamage = tonumber(def.combatProfile.rangedDamage) or 7,
             meleeCooldownMs = tonumber(def.combatProfile.meleeCooldownMs) or 900,
             rangedCooldownMs = tonumber(def.combatProfile.rangedCooldownMs) or 1800,
+            unarmedDamage = tonumber(def.combatProfile.unarmedDamage) or Const.UNARMED_DAMAGE,
+            unarmedGroundDamage = tonumber(def.combatProfile.unarmedGroundDamage) or Const.UNARMED_GROUND_DAMAGE,
+            unarmedCooldownMs = tonumber(def.combatProfile.unarmedCooldownMs) or Const.UNARMED_COOLDOWN_MS,
         },
         hostility = {
             mode = hostile and "hostile_any_player" or "defend_owner",
@@ -129,6 +132,10 @@ function Types.NewRecord(definition)
             combatModeResolved = tostring(def.weaponMode or (hostile and "mixed" or "melee")),
             weaponStatus = "barehand",
             combatBlockReason = "spawned",
+            ownerSneaking = false,
+            stealthActive = false,
+            stealthBroken = false,
+            stealthReason = "spawned",
             debug = def.debug == true,
         },
     }

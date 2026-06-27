@@ -5,6 +5,7 @@ local Perception = PNC.Perception
 local Core = PNC.Core
 local Const = PNC.Const
 local Spatial = PNC.SpatialIndex
+local Stealth = PNC.Stealth
 
 local function pickNearest(firstTarget, secondTarget)
     if not firstTarget then
@@ -192,6 +193,13 @@ function Perception.ResolveCompanionTarget(record)
     local zombieTarget
     local hostileToOwnerNPC
     local hostileToOwnerZombie
+
+    if Stealth and Stealth.ShouldSuppressCompanionCombat and Stealth.ShouldSuppressCompanionCombat(record) then
+        record.runtime = record.runtime or {}
+        record.runtime.targetKind = "none"
+        record.runtime.combatBlockReason = "follow_stealth_hidden"
+        return nil
+    end
 
     owner = Core.ResolvePlayerByOnlineID(record.ownerOnlineID) or Core.ResolvePlayerByUsername(record.ownerUsername)
     npcTarget = Perception.FindNearestEnemyNPC(record, 8)
