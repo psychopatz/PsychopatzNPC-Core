@@ -117,6 +117,7 @@ local function buildDebugText(snapshot)
         "Target: " .. tostring(debugState.targetKind or "none"),
         "Mode: " .. tostring(debugState.combatModeResolved or debugState.weaponMode or "-"),
         "Weapon: " .. tostring(debugState.weaponStatus or "-"),
+        "Stamina: " .. tostring(debugState.staminaState or snapshot.staminaState or "-"),
         "Block: " .. tostring(debugState.combatBlockReason or "-"),
     }, " | ")
 end
@@ -483,6 +484,7 @@ function Nameplates.DebugDescribeSnapshot(snapshot)
         "weapon=" .. tostring(snapshot.debugState and snapshot.debugState.weaponStatus or "-"),
         "block=" .. tostring(snapshot.debugState and snapshot.debugState.combatBlockReason or "-"),
         "hp=" .. tostring(snapshot.hpCurrent) .. "/" .. tostring(snapshot.hpMax),
+        "stamina=" .. tostring(snapshot.staminaCurrent) .. "/" .. tostring(snapshot.staminaMax),
         "healthState=" .. tostring(snapshot.healthState),
         "presence=" .. tostring(snapshot.presenceState),
     }, " | ")

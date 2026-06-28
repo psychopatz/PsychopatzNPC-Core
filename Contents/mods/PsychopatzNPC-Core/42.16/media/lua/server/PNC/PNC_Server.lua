@@ -18,6 +18,7 @@ local Scheduler = PNC.Scheduler
 local Network = PNC.Network
 local API = PNC.API
 local ZombieAggro = PNC.ZombieAggro
+local Stamina = PNC.Stamina
 
 local function buildSnapshotList()
     local list = {}
@@ -33,6 +34,9 @@ local function processRecord(record, now)
     Presence.Reconcile(record)
     zombie = Registry.GetLiveZombie(record.id)
     Health.Update(record, zombie, now)
+    if Stamina and Stamina.Update then
+        Stamina.Update(record, zombie, now)
+    end
     if zombie and record.alive ~= false then
         PathService.Pump(record, zombie)
     end
@@ -159,6 +163,11 @@ local function onClientCommand(module, command, player, args)
 
     if args and args.action == "heal" then
         API.DebugCommand(args.id, "heal", args)
+        return
+    end
+
+    if args and args.action == "revive" then
+        API.DebugCommand(args.id, "revive", args)
         return
     end
 

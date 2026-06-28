@@ -23,9 +23,14 @@ function Health.Ensure(record)
             lastDamageAt = 0,
             downedAt = 0,
             recentDamageUntil = 0,
+            reviveUntil = 0,
         }
-    elseif record.health.recentDamageUntil == nil then
+    end
+    if record.health.recentDamageUntil == nil then
         record.health.recentDamageUntil = 0
+    end
+    if record.health.reviveUntil == nil then
+        record.health.reviveUntil = 0
     end
     return record.health
 end
@@ -43,31 +48,23 @@ function Health.MarkRecentDamage(record, now)
 end
 
 local function applyIncapacitatedLiveState(record, zombie)
-    local PathService = resolvePathService()
     local Animation = resolveAnimation()
+    local path = record and record.runtime and record.runtime.pathing or nil
+    local moving = path and path.goalX ~= nil and path.finished ~= true and path.mode == "crawl"
     if not zombie then
         return
-    end
-    if PathService and PathService.Reset then
-        PathService.Reset(zombie, record)
-    end
-    if zombie.setTarget then
-        zombie:setTarget(nil)
-    end
-    if zombie.clearAggroList then
-        zombie:clearAggroList()
     end
     if zombie.setRunning then
         zombie:setRunning(false)
     end
     if zombie.setUseless then
-        zombie:setUseless(true)
+        zombie:setUseless(false)
     end
     if zombie.setHealth then
         zombie:setHealth(Const.INCAPACITATED_ENGINE_BUFFER)
     end
-    if Animation and Animation.Apply then
-        Animation.Apply(zombie, record, "Idle")
+    if Animation and Animation.ApplyDowned then
+        Animation.ApplyDowned(zombie, record, moving == true)
     end
 end
 
@@ -81,6 +78,9 @@ local function applyNormalLiveState(record, zombie)
     end
     if zombie.setHealth then
         zombie:setHealth(Const.DEFAULT_ENGINE_BUFFER)
+    end
+    if Animation and Animation.ClearDowned then
+        Animation.ClearDowned(zombie)
     end
     if Animation and Animation.Apply then
         Animation.Apply(zombie, record, "Idle")
@@ -101,6 +101,7 @@ end
 
 function Health.EnterIncapacitated(record, zombie, reason)
     local health = Health.Ensure(record)
+    local PathService = resolvePathService()
     local now = Core.Now()
     if not record or record.alive == false then
         return false
@@ -110,13 +111,35 @@ function Health.EnterIncapacitated(record, zombie, reason)
     health.downedAt = now
     health.incapacitatedReason = reason or "unknown"
     health.recentDamageUntil = now + Const.RECENT_DAMAGE_SHOW_MS
+    health.reviveUntil = now + Const.INCAPACITATED_TIMEOUT_MS
+    record.runtime.forceLive = true
     record.runtime.target = nil
     record.runtime.lastPathX = nil
     record.runtime.lastPathY = nil
-    record.runtime.inCombatUntil = 0
+    record.runtime.inCombatUntil = now + Const.DEBUG_COMBAT_HOLD_MS
     record.activeJob = "Incapacitated"
     record.activeBehavior = "Incapacitated"
+    if PathService and PathService.Reset then
+        PathService.Reset(zombie, record)
+    end
     applyIncapacitatedLiveState(record, zombie)
+    return true
+end
+
+function Health.Revive(record, zombie)
+    local health = Health.Ensure(record)
+    local revivedHP = math.min(health.max, math.max(Const.INCAPACITATED_HP, Const.REVIVE_HP))
+    health.current = revivedHP
+    health.state = "normal"
+    health.downedAt = 0
+    health.incapacitatedReason = nil
+    health.reviveUntil = 0
+    health.recentDamageUntil = Core.Now() + Const.RECENT_DAMAGE_SHOW_MS
+    record.alive = true
+    record.runtime.forceLive = false
+    record.runtime.target = nil
+    record.runtime.inCombatUntil = 0
+    applyNormalLiveState(record, zombie)
     return true
 end
 
@@ -126,12 +149,27 @@ function Health.Recover(record, zombie)
     health.state = "normal"
     health.downedAt = 0
     health.incapacitatedReason = nil
+    health.reviveUntil = 0
     health.recentDamageUntil = 0
     record.alive = true
+    record.runtime.forceLive = false
     record.runtime.target = nil
     record.runtime.inCombatUntil = 0
     applyNormalLiveState(record, zombie)
     return true
+end
+
+function Health.CanRevive(record, now)
+    local health
+    if not record then
+        return false
+    end
+    health = Health.Ensure(record)
+    now = tonumber(now) or Core.Now()
+    return record
+        and record.alive ~= false
+        and health.state == "incapacitated"
+        and (tonumber(health.reviveUntil) or 0) > now
 end
 
 function Health.ApplyDamageToPlayer(player, amount)
@@ -148,9 +186,11 @@ function Health.Kill(record, zombie, reason)
     local health = Health.Ensure(record)
     health.current = 0
     health.state = "dead"
+    health.reviveUntil = 0
     health.recentDamageUntil = Core.Now() + Const.RECENT_DAMAGE_SHOW_MS
     record.alive = false
     record.presenceState = Const.PRESENCE_CORPSE
+    record.runtime.forceLive = false
     record.runtime.target = nil
     record.runtime.lastPathX = nil
     record.runtime.lastPathY = nil
@@ -206,7 +246,8 @@ function Health.Update(record, zombie, now)
     end
     if health.state == "incapacitated" then
         applyIncapacitatedLiveState(record, zombie)
-        if (now - (tonumber(health.downedAt) or 0)) >= Const.INCAPACITATED_TIMEOUT_MS then
+        health.current = Const.INCAPACITATED_HP
+        if now >= (tonumber(health.reviveUntil) or 0) then
             Health.Kill(record, zombie, "incapacitated_timeout")
         end
         return

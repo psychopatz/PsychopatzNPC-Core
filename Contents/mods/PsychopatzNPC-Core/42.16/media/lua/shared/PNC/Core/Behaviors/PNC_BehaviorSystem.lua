@@ -228,10 +228,35 @@ function Behavior.Tick(record, zombie, now)
     if record.health and record.health.state == "incapacitated" then
         record.activeJob = "Incapacitated"
         record.activeBehavior = "Incapacitated"
+        target = Perception.FindNearestEnemyZombie(record, Const.INCAP_SHOVE_RANGE + 0.2)
+        if target then
+            record.runtime.target = target
+            if Combat.TryDownedShove and Combat.TryDownedShove(record, zombie, target) then
+                setCombatDebug(record, target, "downed_shove", "melee", "downed_shove")
+            else
+                setCombatDebug(record, target, "downed_under_pressure", "melee", "downed_shove")
+            end
+            return
+        end
+        owner = getOwner(record)
         clearCombatTarget(record, "incapacitated")
-        if zombie then
+        if zombie and owner and record.orderSpec and record.orderSpec.kind == Const.ORDER_FOLLOW then
+            ownerDist = Core.Distance(record.x, record.y, owner:getX(), owner:getY())
+            if ownerDist > (Const.FOLLOW_DISTANCE + 0.5) then
+                moveRecord(record, zombie, owner:getX(), owner:getY(), owner:getZ(), "crawl", 1.2)
+            else
+                PathService.Reset(zombie, record)
+                if PNC.Animation and PNC.Animation.ApplyDowned then
+                    PNC.Animation.ApplyDowned(zombie, record, false)
+                end
+            end
+        elseif zombie then
             PathService.Reset(zombie, record)
-            PNC.Animation.Apply(zombie, record, "Idle")
+            if PNC.Animation and PNC.Animation.ApplyDowned then
+                PNC.Animation.ApplyDowned(zombie, record, false)
+            else
+                PNC.Animation.Apply(zombie, record, "Crawl")
+            end
         end
         return
     end

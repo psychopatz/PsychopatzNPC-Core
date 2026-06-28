@@ -125,6 +125,15 @@ function API.DebugCommand(npcId, command, args)
         Network.BroadcastRecord(record, "heal")
         return true
     end
+    if command == "revive" then
+        zombie = Registry.GetLiveZombie(npcId)
+        if Health.CanRevive and not Health.CanRevive(record) then
+            return false
+        end
+        Health.Revive(record, zombie)
+        Network.BroadcastRecord(record, "revive")
+        return true
+    end
     if command == "damage" then
         return API.ApplyDamage(npcId, {
             amount = tonumber(args and args.amount or 10) or 10,

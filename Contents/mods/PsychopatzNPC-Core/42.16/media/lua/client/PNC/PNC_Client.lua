@@ -243,6 +243,17 @@ local function onFillWorldObjectContextMenu(playerNum, context, worldobjects, te
         subMenu:addOption("Toggle Combat Debug", nil, function()
             sendDebug("toggle_debug", { id = record.id })
         end)
+        subMenu:addOption("View Skills", nil, function()
+            if PNC.SkillsWindow and PNC.SkillsWindow.Toggle then
+                PNC.SkillsWindow.Toggle(record.id)
+            end
+        end)
+        snapshot = ClientState.snapshots and ClientState.snapshots[record.id] or nil
+        if snapshot and snapshot.healthState == "incapacitated" and snapshot.canRevive == true then
+            subMenu:addOption("Revive", nil, function()
+                sendDebug("revive", { id = record.id })
+            end)
+        end
 
         orderMenu = ISContextMenu:getNew(context)
         subMenu:addSubMenu(subMenu:addOption("Orders"), orderMenu)

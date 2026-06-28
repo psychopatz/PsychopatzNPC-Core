@@ -34,6 +34,8 @@ local function setWalkAnim(zombie, record, mode)
         walkType = "Run"
     elseif mode == "sneak" then
         walkType = "SneakWalk"
+    elseif mode == "crawl" then
+        walkType = "Walk"
     end
     if zombie.setVariable then
         zombie:setVariable("PNCWalkType", walkType)
@@ -51,7 +53,11 @@ local function setWalkAnim(zombie, record, mode)
             zombie:setBumpType("IdleToWalk")
         end
     end
-    Animation.Apply(zombie, record, walkType)
+    if mode == "crawl" then
+        Animation.Apply(zombie, record, "Crawl")
+    else
+        Animation.Apply(zombie, record, walkType)
+    end
 end
 
 local function resetPathController(zombie)
@@ -355,7 +361,11 @@ function PathService.MoveToward(record, zombie, targetX, targetY, targetZ, mode,
     dist = Core.Distance(zx, zy, targetX, targetY)
     if dist <= stopDistance and zz == targetZ then
         PathService.Reset(zombie, record)
-        Animation.Apply(zombie, record, mode == "sneak" and "SneakWalk" or "Idle")
+        if mode == "crawl" then
+            Animation.Apply(zombie, record, "Crawl")
+        else
+            Animation.Apply(zombie, record, mode == "sneak" and "SneakWalk" or "Idle")
+        end
         return true, "arrived"
     end
 
@@ -373,7 +383,11 @@ function PathService.Pump(record, zombie)
     end
     ok, reason = updatePathRequest(zombie, record)
     if reason == "arrived" or reason == "blocked" then
-        Animation.Apply(zombie, record, path.mode == "sneak" and "SneakWalk" or "Idle")
+        if path.mode == "crawl" then
+            Animation.Apply(zombie, record, "Crawl")
+        else
+            Animation.Apply(zombie, record, path.mode == "sneak" and "SneakWalk" or "Idle")
+        end
     end
     return ok, reason
 end

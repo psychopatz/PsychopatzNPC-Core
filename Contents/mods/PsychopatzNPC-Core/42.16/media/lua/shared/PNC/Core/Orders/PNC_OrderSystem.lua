@@ -4,6 +4,7 @@ PNC.OrderSystem = PNC.OrderSystem or {}
 local OrderSystem = PNC.OrderSystem
 local Const = PNC.Const
 local Core = PNC.Core
+local Skills = PNC.Skills
 
 local function fallbackOrder(record)
     if record.faction == "hostile" then
@@ -60,11 +61,18 @@ end
 
 function OrderSystem.SetOrder(record, orderSpec)
     record.orderSpec = OrderSystem.Normalize(record, orderSpec)
+    if record.orderSpec.kind == Const.ORDER_FOLLOW then
+        record.ownerUsername = record.orderSpec.ownerUsername
+        record.ownerOnlineID = record.orderSpec.ownerOnlineID
+    end
     record.runtime.target = nil
     record.runtime.lastPathX = nil
     record.runtime.lastPathY = nil
     if record.orderSpec.kind == Const.ORDER_PATROL and record.patrolIndex == nil then
         record.patrolIndex = 1
+    end
+    if Skills and Skills.SyncRecruitment then
+        Skills.SyncRecruitment(record)
     end
 end
 

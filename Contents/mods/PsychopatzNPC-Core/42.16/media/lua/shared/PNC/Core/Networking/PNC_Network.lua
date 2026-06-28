@@ -6,6 +6,8 @@ local Network = PNC.Network
 local Core = PNC.Core
 local Const = PNC.Const
 local Equipment = PNC.Equipment
+local Skills = PNC.Skills
+local Stamina = PNC.Stamina
 
 local function resolveAIState(record)
     local healthState = record.health and tostring(record.health.state or "normal") or "normal"
@@ -17,7 +19,7 @@ local function resolveAIState(record)
         return "Dead", false
     end
     if healthState == "incapacitated" then
-        return "Incapacitated", false
+        return "Downed", true
     end
     if record.presenceState == Const.PRESENCE_ABSTRACT then
         return "Abstract", false
@@ -36,10 +38,13 @@ function Network.BuildSnapshot(record)
     local inCombat
     local target = record.runtime and record.runtime.target or nil
     local equipmentInfo = Equipment and Equipment.Describe and Equipment.Describe(record) or {}
+    local staminaInfo = Stamina and Stamina.BuildSnapshot and Stamina.BuildSnapshot(record) or {}
     aiState, inCombat = resolveAIState(record)
     return {
         id = record.id,
         name = record.name,
+        identitySeed = record.identitySeed,
+        recruited = record.recruited == true,
         faction = record.faction,
         visualProfile = record.visualProfile,
         isFemale = record.isFemale,
@@ -54,7 +59,14 @@ function Network.BuildSnapshot(record)
         hpCurrent = record.health and record.health.current or nil,
         hpMax = record.health and record.health.max or nil,
         healthState = record.health and record.health.state or nil,
+        canRevive = record.health and record.health.state == "incapacitated" and (tonumber(record.health.reviveUntil) or 0) > Core.Now() or false,
+        reviveUntil = record.health and record.health.reviveUntil or 0,
         recentDamageUntil = record.health and record.health.recentDamageUntil or 0,
+        staminaCurrent = staminaInfo.current,
+        staminaMax = staminaInfo.max,
+        staminaState = staminaInfo.state,
+        staminaVisibleUntil = staminaInfo.visibleUntil,
+        skillLevels = Skills and Skills.BuildSnapshot and Skills.BuildSnapshot(record) or {},
         weaponMode = record.weaponMode,
         weaponFullType = record.equipment and record.equipment.primaryFullType or nil,
         combatModeResolved = equipmentInfo.combatModeResolved or record.weaponMode,
@@ -69,10 +81,15 @@ function Network.BuildSnapshot(record)
             orderKind = record.orderSpec and record.orderSpec.kind or nil,
             targetKind = target and target.kind or nil,
             healthState = record.health and record.health.state or nil,
+            canRevive = record.health and record.health.state == "incapacitated" and (tonumber(record.health.reviveUntil) or 0) > Core.Now() or false,
             weaponMode = record.weaponMode,
             combatModeResolved = equipmentInfo.combatModeResolved or record.weaponMode,
             weaponStatus = equipmentInfo.weaponStatus or "unknown",
             combatBlockReason = record.runtime and record.runtime.combatBlockReason or nil,
+            staminaState = staminaInfo.state,
+            staminaCurrent = staminaInfo.current,
+            staminaMax = staminaInfo.max,
+            stealthActive = record.runtime and record.runtime.stealthActive == true or false,
             debugEnabled = record.runtime and record.runtime.debug == true or false,
             presenceState = record.presenceState,
         },

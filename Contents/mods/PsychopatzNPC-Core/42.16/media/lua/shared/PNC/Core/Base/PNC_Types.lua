@@ -4,6 +4,7 @@ PNC.Types = PNC.Types or {}
 local Types = PNC.Types
 local Core = PNC.Core
 local Const = PNC.Const
+local Identity = PNC.Identity
 
 local function normalizePatrolPoints(points, fallbackX, fallbackY, fallbackZ)
     local output = {}
@@ -51,6 +52,7 @@ function Types.NormalizeDefinition(definition)
         anchorZ = tonumber(def.anchorZ) or z,
         ownerUsername = def.ownerUsername,
         ownerOnlineID = def.ownerOnlineID,
+        identitySeed = tonumber(def.identitySeed) or nil,
         orderSpec = def.orderSpec,
         patrolPoints = normalizePatrolPoints(def.patrolPoints, x, y, z),
         weaponMode = tostring(def.weaponMode or (isHostile and "mixed" or "melee")),
@@ -69,6 +71,10 @@ function Types.NewRecord(definition)
     local record = {
         id = def.id or Core.GenerateID("npc"),
         name = def.name,
+        identitySeed = Identity and Identity.NormalizeSeed(
+            def.identitySeed,
+            tostring(def.name or "PNC NPC") .. ":" .. tostring(def.visualProfile or def.faction or "companion")
+        ) or (tonumber(def.identitySeed) or 1),
         faction = def.faction,
         outfit = def.outfit,
         visualProfile = def.visualProfile,
@@ -122,6 +128,7 @@ function Types.NewRecord(definition)
         nextThinkAt = now,
         lastSyncAt = 0,
         liveBodyInstanceID = nil,
+        recruited = def.ownerOnlineID ~= nil or def.ownerUsername ~= nil or def.recruited == true,
         runtime = {
             target = nil,
             lastPathX = nil,

@@ -1,3 +1,4 @@
 require "PNC/00_PNC_Init"
 require "PNC/UI/PNC_Nameplates"
+require "PNC/UI/PNC_SkillsWindow"
 require "PNC/PNC_Client"

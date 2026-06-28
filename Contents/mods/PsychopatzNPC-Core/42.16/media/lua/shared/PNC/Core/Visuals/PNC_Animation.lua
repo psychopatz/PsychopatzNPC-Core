@@ -107,6 +107,11 @@ function Animation.Apply(zombie, record, animState)
         if zombie.setWalkType then
             zombie:setWalkType(animState)
         end
+    elseif animState == "Crawl" then
+        zombie:setVariable("PNCWalkType", "Crawl")
+        if zombie.setWalkType then
+            zombie:setWalkType("Walk")
+        end
     elseif animState == "Attack" then
         zombie:setVariable("PNCWalkType", "")
         if zombie.setWalkType then
@@ -128,6 +133,59 @@ function Animation.Apply(zombie, record, animState)
         if zombie.setTarget then
             zombie:setTarget(nil)
         end
+    end
+end
+
+function Animation.ApplyDowned(zombie, record, moving)
+    if not zombie then
+        return
+    end
+    zombie:setVariable("PNC", true)
+    zombie:setVariable("PNCState", tostring(record and (record.activeBehavior or record.activeJob) or "Incapacitated"))
+    zombie:setVariable("PNCAnim", moving and "Crawl" or "Downed")
+    zombie:setVariable("PNCWalkType", moving and "Crawl" or "")
+    zombie:setVariable("bBecomeCrawler", true)
+    zombie:setVariable("bCrawling", true)
+    zombie:setVariable("FallOnFront", true)
+    zombie:setVariable("bMoving", moving == true)
+    zombie:setVariable("isMoving", moving == true)
+    if zombie.setCrawler then
+        zombie:setCrawler(true)
+    end
+    if zombie.setOnFloor then
+        zombie:setOnFloor(true)
+    end
+    if zombie.setFallOnFront then
+        zombie:setFallOnFront(true)
+    end
+    if zombie.setCanWalk then
+        zombie:setCanWalk(true)
+    end
+    if zombie.setRunning then
+        zombie:setRunning(false)
+    end
+    if zombie.setUseless then
+        zombie:setUseless(false)
+    end
+end
+
+function Animation.ClearDowned(zombie)
+    if not zombie then
+        return
+    end
+    zombie:setVariable("bBecomeCrawler", false)
+    zombie:setVariable("bCrawling", false)
+    zombie:setVariable("FallOnFront", false)
+    zombie:setVariable("bMoving", false)
+    zombie:setVariable("isMoving", false)
+    if zombie.setCrawler then
+        zombie:setCrawler(false)
+    end
+    if zombie.setOnFloor then
+        zombie:setOnFloor(false)
+    end
+    if zombie.setFallOnFront then
+        zombie:setFallOnFront(false)
     end
 end
 

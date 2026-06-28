@@ -2,6 +2,7 @@ PNC = PNC or {}
 PNC.VisualProfiles = PNC.VisualProfiles or {}
 
 local Profiles = PNC.VisualProfiles
+local Identity = PNC.Identity
 
 Profiles.Named = Profiles.Named or {
     companion = {
@@ -32,11 +33,11 @@ Profiles.Named = Profiles.Named or {
     },
 }
 
-local function chooseFromList(list)
+local function chooseFromList(record, key, list)
     if type(list) ~= "table" or #list <= 0 then
         return nil
     end
-    return list[ZombRand(#list) + 1]
+    return list[Identity.Index(record and record.identitySeed or 1, key, #list)]
 end
 
 function Profiles.Resolve(record)
@@ -62,8 +63,8 @@ function Profiles.RollAppearance(record)
     local profile = Profiles.Resolve(record) or {}
     return {
         outfit = Profiles.ResolveSpawnOutfit(record),
-        skinTexture = chooseFromList(profile.skinTextures),
-        hairModel = chooseFromList(profile.hairModels),
-        beardModel = record and record.isFemale and nil or chooseFromList(profile.beardModels),
+        skinTexture = chooseFromList(record, "skin", profile.skinTextures),
+        hairModel = chooseFromList(record, "hair", profile.hairModels),
+        beardModel = record and record.isFemale and nil or chooseFromList(record, "beard", profile.beardModels),
     }
 end
