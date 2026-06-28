@@ -165,6 +165,40 @@ function Perception.FindNearestEnemyZombie(record, radius)
     return best
 end
 
+function Perception.CountEnemyZombies(record, radius)
+    local cell
+    local zombieList
+    local count = 0
+    local i
+    local zombie
+    local distSq
+
+    if not record or record.hostility and record.hostility.attackZombies == false then
+        return 0
+    end
+    if not getCell then
+        return 0
+    end
+
+    cell = getCell()
+    zombieList = cell and cell.getZombieList and cell:getZombieList() or nil
+    if not zombieList then
+        return 0
+    end
+
+    for i = 0, zombieList:size() - 1 do
+        zombie = zombieList:get(i)
+        if zombie and (not zombie:isDead()) and (not isManagedNPCBody(zombie)) and math.abs(zombie:getZ() - record.z) < 1 then
+            distSq = Core.DistanceSq(record.x, record.y, zombie:getX(), zombie:getY())
+            if distSq <= (radius * radius) then
+                count = count + 1
+            end
+        end
+    end
+
+    return count
+end
+
 function Perception.FindZombieByID(zombieId)
     local cell
     local zombieList

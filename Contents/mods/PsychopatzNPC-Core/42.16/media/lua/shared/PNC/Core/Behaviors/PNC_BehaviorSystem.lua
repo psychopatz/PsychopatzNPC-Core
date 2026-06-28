@@ -11,6 +11,7 @@ local PathService = PNC.PathService
 local JobSystem = PNC.JobSystem
 local Equipment = PNC.Equipment
 local Stealth = PNC.Stealth
+local Tactics = PNC.CombatTactics
 
 local function setCombatDebug(record, target, reason, modeResolved, weaponStatus)
     record.runtime.targetKind = target and target.kind or "none"
@@ -127,6 +128,9 @@ local function tickEngage(record, zombie, target)
     local previousWeaponStatus = record.runtime.weaponStatus
     local attacked
     local reason
+    local actionActive
+    local repositioned
+    local repositionReason
 
     bindLiveTarget(zombie, target)
     setCombatDebug(record, target, "engaging_" .. tostring(target.kind or "unknown"), effectiveMode, equipmentInfo.weaponStatus)
@@ -135,10 +139,27 @@ local function tickEngage(record, zombie, target)
         Core.LogRecordDebug(record, "NPC " .. tostring(record.id) .. " weapon state=" .. tostring(equipmentInfo.weaponStatus))
     end
 
+    if Combat and Combat.PumpAttackAction then
+        actionActive, reason = Combat.PumpAttackAction(record, zombie)
+        if actionActive then
+            haltMovement(record, zombie)
+            setCombatDebug(record, target, reason or "attack_in_progress", effectiveMode, equipmentInfo.weaponStatus)
+            return
+        end
+    end
+
     if zombie then
         if dist <= Const.MELEE_RANGE * 1.1 then
             haltMovement(record, zombie)
             PNC.Animation.Apply(zombie, record, "Idle")
+        end
+    end
+
+    if effectiveMode == "ranged" and Tactics and Tactics.TryReposition and target.kind == "zombie" and dist < 4.2 then
+        repositioned, repositionReason = Tactics.TryReposition(record, zombie, target, effectiveMode, "target_too_close", equipmentInfo)
+        if repositioned then
+            setCombatDebug(record, target, repositionReason or "maintaining_range", effectiveMode, equipmentInfo.weaponStatus)
+            return
         end
     end
 
@@ -152,6 +173,15 @@ local function tickEngage(record, zombie, target)
         if reason == "target_out_of_range" then
             moveRecord(record, zombie, target.x, target.y, target.z, "run", Const.MELEE_RANGE)
             setCombatDebug(record, target, "closing_to_melee", effectiveMode, equipmentInfo.weaponStatus)
+            return
+        end
+        if Tactics and Tactics.TryReposition then
+            repositioned, repositionReason = Tactics.TryReposition(record, zombie, target, effectiveMode, reason, equipmentInfo)
+        else
+            repositioned, repositionReason = false, nil
+        end
+        if repositioned then
+            setCombatDebug(record, target, repositionReason or "melee_kiting", effectiveMode, equipmentInfo.weaponStatus)
             return
         end
         setCombatDebug(record, target, reason, effectiveMode, equipmentInfo.weaponStatus)
@@ -171,6 +201,15 @@ local function tickEngage(record, zombie, target)
             setCombatDebug(record, target, "closing_to_range", effectiveMode, equipmentInfo.weaponStatus)
             return
         end
+        if Tactics and Tactics.TryReposition then
+            repositioned, repositionReason = Tactics.TryReposition(record, zombie, target, effectiveMode, reason, equipmentInfo)
+        else
+            repositioned, repositionReason = false, nil
+        end
+        if repositioned then
+            setCombatDebug(record, target, repositionReason or "maintaining_range", effectiveMode, equipmentInfo.weaponStatus)
+            return
+        end
         setCombatDebug(record, target, reason, effectiveMode, equipmentInfo.weaponStatus)
         Core.LogRecordDebug(record, "NPC " .. tostring(record.id) .. " ranged blocked=" .. tostring(reason))
         return
@@ -181,6 +220,15 @@ local function tickEngage(record, zombie, target)
         if attacked then
             haltMovement(record, zombie)
             setCombatDebug(record, target, "attacking_melee", "mixed", equipmentInfo.weaponStatus)
+            return
+        end
+        if Tactics and Tactics.TryReposition then
+            repositioned, repositionReason = Tactics.TryReposition(record, zombie, target, "melee", reason, equipmentInfo)
+        else
+            repositioned, repositionReason = false, nil
+        end
+        if repositioned then
+            setCombatDebug(record, target, repositionReason or "melee_kiting", "mixed", equipmentInfo.weaponStatus)
             return
         end
         setCombatDebug(record, target, reason, "mixed", equipmentInfo.weaponStatus)
@@ -197,6 +245,15 @@ local function tickEngage(record, zombie, target)
     if reason == "target_out_of_range" then
         moveRecord(record, zombie, target.x, target.y, target.z, "run", Const.RANGED_RANGE * 0.85)
         setCombatDebug(record, target, "closing_to_range", "mixed", equipmentInfo.weaponStatus)
+        return
+    end
+    if Tactics and Tactics.TryReposition then
+        repositioned, repositionReason = Tactics.TryReposition(record, zombie, target, "ranged", reason, equipmentInfo)
+    else
+        repositioned, repositionReason = false, nil
+    end
+    if repositioned then
+        setCombatDebug(record, target, repositionReason or "maintaining_range", "mixed", equipmentInfo.weaponStatus)
         return
     end
     setCombatDebug(record, target, reason, "mixed", equipmentInfo.weaponStatus)

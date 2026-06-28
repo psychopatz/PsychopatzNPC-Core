@@ -116,6 +116,7 @@ function Health.EnterIncapacitated(record, zombie, reason)
     record.runtime.target = nil
     record.runtime.lastPathX = nil
     record.runtime.lastPathY = nil
+    record.runtime.attackAction = nil
     record.runtime.inCombatUntil = now + Const.DEBUG_COMBAT_HOLD_MS
     record.activeJob = "Incapacitated"
     record.activeBehavior = "Incapacitated"
@@ -138,6 +139,7 @@ function Health.Revive(record, zombie)
     record.alive = true
     record.runtime.forceLive = false
     record.runtime.target = nil
+    record.runtime.attackAction = nil
     record.runtime.inCombatUntil = 0
     applyNormalLiveState(record, zombie)
     return true
@@ -154,6 +156,7 @@ function Health.Recover(record, zombie)
     record.alive = true
     record.runtime.forceLive = false
     record.runtime.target = nil
+    record.runtime.attackAction = nil
     record.runtime.inCombatUntil = 0
     applyNormalLiveState(record, zombie)
     return true
@@ -192,6 +195,7 @@ function Health.Kill(record, zombie, reason)
     record.presenceState = Const.PRESENCE_CORPSE
     record.runtime.forceLive = false
     record.runtime.target = nil
+    record.runtime.attackAction = nil
     record.runtime.lastPathX = nil
     record.runtime.lastPathY = nil
     record.deathReason = reason or "unknown"
