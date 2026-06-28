@@ -83,8 +83,8 @@ local function handleDebugSpawn(player, args)
 
     if args and args.variant == "companion" then
         API.Spawn({
-            name = "Companion",
             faction = "companion",
+            archetypeID = "General",
             x = x,
             y = y,
             z = z,
@@ -103,8 +103,8 @@ local function handleDebugSpawn(player, args)
 
     if args and args.variant == "hostile_melee" then
         API.Spawn({
-            name = "Hostile Melee",
             faction = "hostile",
+            archetypeID = "Scavenger",
             x = x,
             y = y,
             z = z,
@@ -117,8 +117,8 @@ local function handleDebugSpawn(player, args)
 
     if args and args.variant == "hostile_ranged" then
         API.Spawn({
-            name = "Hostile Ranged",
             faction = "hostile",
+            archetypeID = "Mechanic",
             x = x,
             y = y,
             z = z,

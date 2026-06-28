@@ -3,6 +3,7 @@ PNC.Visuals = PNC.Visuals or {}
 
 local Visuals = PNC.Visuals
 local Profiles = PNC.VisualProfiles
+local Equipment = PNC.Equipment
 
 local function clearBodySoiledState(humanVisual)
     local maxIndex
@@ -61,6 +62,42 @@ local function refreshModel(zombie)
     end
 end
 
+local function safeSetWornItem(zombie, item)
+    local bodyLocation
+    if not zombie or not item or not zombie.setWornItem then
+        return false
+    end
+    bodyLocation = item.getBodyLocation and item:getBodyLocation() or nil
+    if not bodyLocation or bodyLocation == "" then
+        return false
+    end
+    return pcall(function()
+        zombie:setWornItem(bodyLocation, item)
+    end)
+end
+
+local function applyBaseOutfitItems(zombie, appearance)
+    local items
+    local i
+    local item
+    local reason
+    if not zombie or not appearance then
+        return
+    end
+    items = appearance.outfitItems
+    if type(items) ~= "table" or not Equipment or not Equipment.CreateItem then
+        return
+    end
+    for i = 1, #items do
+        item, reason = Equipment.CreateItem(items[i])
+        if item then
+            safeSetWornItem(zombie, item)
+        elseif reason and reason ~= "invalid_full_type" then
+            PNC.Core.LogWarn("PNC visuals could not create outfit item " .. tostring(items[i]) .. ": " .. tostring(reason))
+        end
+    end
+end
+
 function Visuals.ApplyHumanVisuals(zombie, record)
     local appearance
     local humanVisual
@@ -93,6 +130,7 @@ function Visuals.ApplyHumanVisuals(zombie, record)
     if zombie.dressInNamedOutfit then
         zombie:dressInNamedOutfit(appearance.outfit)
     end
+    applyBaseOutfitItems(zombie, appearance)
 
     if humanVisual then
         if appearance.skinTexture and humanVisual.setSkinTextureName then

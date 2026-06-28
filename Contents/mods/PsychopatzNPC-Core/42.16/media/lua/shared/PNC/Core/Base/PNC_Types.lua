@@ -69,14 +69,17 @@ function Types.NormalizeDefinition(definition)
     local y = tonumber(def.y) or 0
     local z = tonumber(def.z) or 0
     local isHostile = faction == "hostile"
+    local explicitName = normalizeString(def.displayName or def.name)
 
     return {
         id = def.id,
-        name = tostring(def.name or (isHostile and "Hostile NPC" or "Companion NPC")),
+        name = explicitName,
+        displayName = explicitName,
+        archetypeID = normalizeString(def.archetypeID),
         faction = faction,
         outfit = def.outfit and tostring(def.outfit) or nil,
-        visualProfile = tostring(def.visualProfile or faction),
-        isFemale = def.isFemale == true,
+        visualProfile = normalizeString(def.visualProfile),
+        isFemale = def.isFemale == nil and nil or def.isFemale == true,
         x = x,
         y = y,
         z = z,
@@ -95,6 +98,8 @@ function Types.NormalizeDefinition(definition)
         allowedJobs = Core.DeepCopy(def.allowedJobs or {}),
         forceLive = def.forceLive == true,
         debug = def.debug == true,
+        persist = def.persist ~= false,
+        recruited = def.recruited == true,
     }
 end
 
@@ -102,13 +107,16 @@ function Types.NewRecord(definition)
     local def = Types.NormalizeDefinition(definition)
     local now = Core.Now()
     local hostile = def.faction == "hostile"
+    local generatedID = def.id or Core.GenerateID("npc")
     local record = {
-        id = def.id or Core.GenerateID("npc"),
-        name = def.name,
+        id = generatedID,
+        name = def.displayName,
         identitySeed = Identity and Identity.NormalizeSeed(
             def.identitySeed,
-            tostring(def.name or "PNC NPC") .. ":" .. tostring(def.visualProfile or def.faction or "companion")
+            tostring(def.displayName or def.name or def.archetypeID or def.faction or "PNC NPC") .. ":" .. tostring(generatedID)
         ) or (tonumber(def.identitySeed) or 1),
+        archetypeID = def.archetypeID,
+        archetypeLabel = nil,
         faction = def.faction,
         outfit = def.outfit,
         visualProfile = def.visualProfile,
@@ -163,6 +171,7 @@ function Types.NewRecord(definition)
         lastSyncAt = 0,
         liveBodyInstanceID = nil,
         recruited = def.ownerOnlineID ~= nil or def.ownerUsername ~= nil or def.recruited == true,
+        persist = def.persist ~= false,
         runtime = {
             target = nil,
             lastPathX = nil,
@@ -180,6 +189,12 @@ function Types.NewRecord(definition)
             debug = def.debug == true,
         },
     }
+
+    if Identity and Identity.ApplyRecordIdentity then
+        Identity.ApplyRecordIdentity(record, def)
+    else
+        record.name = record.name or (hostile and "Hostile NPC" or "Companion NPC")
+    end
 
     return record
 end

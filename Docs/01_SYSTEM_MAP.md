@@ -2,6 +2,10 @@
 
 ## Shared Core
 - `PNC_Core`: environment helpers, time, players, logging
+- `PNC_ArchetypeCatalog`: vendored DT-derived archetype labels, looks, and base biases
+- `PNC_Identity_Names`: deterministic NPC name generation
+- `PNC_Identity_Profile`: seeded archetype/name/look resolution
+- `PNC_Persistence`: versioned save schema, migration, and runtime rehydrate
 - `PNC_Registry`: authoritative NPC records and live body lookup
 - `PNC_SpatialIndex`: indexed nearby player and NPC queries
 - `PNC_Perception`: target selection rules
@@ -22,4 +26,5 @@
 
 ## Client
 - `PNC_Client`: snapshot cache, sync requests, context menu debug tools
-- `PNC_Nameplates`: overhead HP bars, incapacitated pulse, and AI debug overlay
+- `PNC_Nameplates`: overhead name, HP, stamina, and AI debug overlay
+- `PNC_CharacterWindow`: vanilla-like NPC character shell and tabs

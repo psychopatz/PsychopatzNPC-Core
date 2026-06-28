@@ -52,6 +52,13 @@ function Profiles.Resolve(record)
 end
 
 function Profiles.ResolveSpawnOutfit(record)
+    local appearance
+    if Identity and Identity.RollAppearance then
+        appearance = Identity.RollAppearance(record)
+        if appearance and appearance.outfit then
+            return appearance.outfit
+        end
+    end
     local profile = Profiles.Resolve(record)
     if record and record.outfit and record.outfit ~= "" then
         return tostring(record.outfit)
@@ -60,6 +67,10 @@ function Profiles.ResolveSpawnOutfit(record)
 end
 
 function Profiles.RollAppearance(record)
+    local appearance = Identity and Identity.RollAppearance and Identity.RollAppearance(record) or nil
+    if appearance then
+        return appearance
+    end
     local profile = Profiles.Resolve(record) or {}
     return {
         outfit = Profiles.ResolveSpawnOutfit(record),

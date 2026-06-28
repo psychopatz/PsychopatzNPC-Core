@@ -62,6 +62,11 @@ local function getHealthRatio(current, maxValue)
     return clamp((tonumber(current) or 0) / safeMax, 0, 1)
 end
 
+local function getStaminaRatio(current, maxValue)
+    local safeMax = math.max(1, tonumber(maxValue) or 1)
+    return clamp((tonumber(current) or 0) / safeMax, 0, 1)
+end
+
 local function getColorForRatio(ratio)
     if ratio >= 0.7 then
         return { r = 0.1, g = 0.75, b = 0.15, a = 1 }
@@ -103,6 +108,34 @@ local function shouldShowHealth(snapshot, currentTime)
         return true
     end
     return (tonumber(snapshot.recentDamageUntil) or 0) > currentTime
+end
+
+local function shouldShowStamina(snapshot, currentTime)
+    local ratio
+    if not snapshot then
+        return false
+    end
+    if tostring(snapshot.healthState or "") == "incapacitated" then
+        return true
+    end
+    if snapshot.inCombat == true then
+        return true
+    end
+    if (tonumber(snapshot.staminaVisibleUntil) or 0) > currentTime then
+        return true
+    end
+    ratio = getStaminaRatio(snapshot.staminaCurrent, snapshot.staminaMax)
+    return ratio < 0.999
+end
+
+local function getStaminaColor(ratio)
+    if ratio >= 0.7 then
+        return { r = 0.24, g = 0.55, b = 0.98, a = 1.0 }
+    end
+    if ratio >= 0.35 then
+        return { r = 0.92, g = 0.72, b = 0.14, a = 1.0 }
+    end
+    return { r = 0.88, g = 0.26, b = 0.18, a = 1.0 }
 end
 
 local function buildDebugText(snapshot)
@@ -263,6 +296,9 @@ function ISPNCNameplateManager:update()
                     entry.healthRatio = getHealthRatio(snapshot.hpCurrent, snapshot.hpMax)
                     entry.nameColor = getNameColor(snapshot)
                     entry.healthVisible = shouldShowHealth(snapshot, currentTime)
+                    entry.staminaVisible = shouldShowStamina(snapshot, currentTime)
+                    entry.staminaRatio = getStaminaRatio(snapshot.staminaCurrent, snapshot.staminaMax)
+                    entry.staminaColor = getStaminaColor(entry.staminaRatio)
                     entry.barColor = snapshot.healthState == "incapacitated"
                         and getIncapacitatedBarColor(currentTime)
                         or getColorForRatio(entry.healthRatio)
@@ -307,6 +343,7 @@ function ISPNCNameplateManager:render()
     local hpG
     local hpB
     local debugY
+    local staminaTop
 
     if not Settings.enabled or not self.player then
         self:clearStencilRect()
@@ -429,8 +466,44 @@ function ISPNCNameplateManager:render()
                     )
                 end
 
+                if entry.staminaVisible then
+                    staminaTop = entry.healthVisible and (barTop + barHeight + (6 / zoom)) or barTop
+                    self:drawRect(
+                        barLeft - PADDING,
+                        staminaTop - PADDING,
+                        barWidth + (PADDING * 2),
+                        barHeight + (PADDING * 2),
+                        0.48 * alpha,
+                        0,
+                        0,
+                        0
+                    )
+                    self:drawRect(
+                        barLeft,
+                        staminaTop,
+                        barWidth * entry.staminaRatio,
+                        barHeight,
+                        entry.staminaColor.a * alpha,
+                        entry.staminaColor.r,
+                        entry.staminaColor.g,
+                        entry.staminaColor.b
+                    )
+                    self:drawRectBorder(
+                        barLeft - PADDING,
+                        staminaTop - PADDING,
+                        barWidth + (PADDING * 2),
+                        barHeight + (PADDING * 2),
+                        alpha,
+                        math.min(1, entry.staminaColor.r + 0.08),
+                        math.min(1, entry.staminaColor.g + 0.08),
+                        math.min(1, entry.staminaColor.b + 0.08)
+                    )
+                end
+
                 if Settings.showAIDebug then
-                    if entry.healthVisible then
+                    if entry.staminaVisible then
+                        debugY = (entry.healthVisible and staminaTop or barTop) + barHeight + DEBUG_TEXT_GAP
+                    elseif entry.healthVisible then
                         debugY = barTop + barHeight + DEBUG_TEXT_GAP
                     else
                         debugY = (screenY - nameYOffset) + NAME_DEBUG_GAP
@@ -476,6 +549,7 @@ function Nameplates.DebugDescribeSnapshot(snapshot)
     return table.concat({
         "id=" .. tostring(snapshot.id),
         "name=" .. tostring(snapshot.name),
+        "archetype=" .. tostring(snapshot.archetypeLabel or "-"),
         "ai=" .. tostring(snapshot.aiState),
         "job=" .. tostring(snapshot.debugState and snapshot.debugState.activeJob or "-"),
         "order=" .. tostring(snapshot.debugState and snapshot.debugState.orderKind or "-"),

@@ -39,12 +39,17 @@ function Network.BuildSnapshot(record)
     local target = record.runtime and record.runtime.target or nil
     local equipmentInfo = Equipment and Equipment.Describe and Equipment.Describe(record) or {}
     local staminaInfo = Stamina and Stamina.BuildSnapshot and Stamina.BuildSnapshot(record) or {}
+    local characterSummary = PNC.Identity and PNC.Identity.GetCharacterSummary and PNC.Identity.GetCharacterSummary(record) or {}
     aiState, inCombat = resolveAIState(record)
     return {
         id = record.id,
         name = record.name,
+        displayName = record.name,
         identitySeed = record.identitySeed,
+        archetypeID = record.archetypeID,
+        archetypeLabel = record.archetypeLabel,
         recruited = record.recruited == true,
+        persist = record.persist ~= false,
         faction = record.faction,
         visualProfile = record.visualProfile,
         isFemale = record.isFemale,
@@ -66,6 +71,7 @@ function Network.BuildSnapshot(record)
         staminaMax = staminaInfo.max,
         staminaState = staminaInfo.state,
         staminaVisibleUntil = staminaInfo.visibleUntil,
+        staminaRatio = math.max(0, math.min(1, (tonumber(staminaInfo.current) or 0) / math.max(1, tonumber(staminaInfo.max) or 1))),
         skillLevels = Skills and Skills.BuildSnapshot and Skills.BuildSnapshot(record) or {},
         weaponMode = record.weaponMode,
         weaponFullType = record.equipment and record.equipment.primaryFullType or nil,
@@ -74,6 +80,21 @@ function Network.BuildSnapshot(record)
         presenceRevision = record.presenceRevision,
         aiState = aiState,
         inCombat = inCombat,
+        equipmentSummary = {
+            primaryFullType = record.equipment and record.equipment.primaryFullType or nil,
+            secondaryFullType = record.equipment and record.equipment.secondaryFullType or nil,
+            worn = Core.DeepCopy(record.equipment and record.equipment.worn or {}),
+            attached = Core.DeepCopy(record.equipment and record.equipment.attached or {}),
+        },
+        characterWindow = {
+            displayName = characterSummary.displayName or record.name,
+            archetypeID = characterSummary.archetypeID or record.archetypeID,
+            archetypeLabel = characterSummary.archetypeLabel or record.archetypeLabel,
+            identitySeed = characterSummary.identitySeed or record.identitySeed,
+            ownerUsername = record.ownerUsername,
+            recruited = record.recruited == true,
+            canRevive = record.health and record.health.state == "incapacitated" and (tonumber(record.health.reviveUntil) or 0) > Core.Now() or false,
+        },
         debugState = {
             aiState = aiState,
             activeJob = record.activeJob,

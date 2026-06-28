@@ -41,7 +41,7 @@ local function getTargetNPC(worldobjects)
         if object and instanceof and instanceof(object, "IsoZombie") then
             record = Registry.FindRecordByZombie(object)
             if record or (object.getModData and object:getModData().PNC_UUID) then
-                return object, record or { id = object:getModData().PNC_UUID, name = "PNC NPC" }
+                return object, record or { id = object:getModData().PNC_UUID, name = "PNC NPC", archetypeLabel = "NPC" }
             end
         end
     end
@@ -78,7 +78,7 @@ local function getTargetNPCNearSquare(square)
         if zombie and zombie.getModData then
             modData = zombie:getModData()
             if modData and modData.PNC_UUID then
-                record = Registry.FindRecordByZombie(zombie) or { id = modData.PNC_UUID, name = "PNC NPC" }
+                record = Registry.FindRecordByZombie(zombie) or { id = modData.PNC_UUID, name = "PNC NPC", archetypeLabel = "NPC" }
                 dx = zombie:getX() - (square:getX() + 0.5)
                 dy = zombie:getY() - (square:getY() + 0.5)
                 distSq = (dx * dx) + (dy * dy)
@@ -115,12 +115,13 @@ local function getSnapshotNPCNearSquare(square)
             distSq = (dx * dx) + (dy * dy)
             if distSq <= bestDistSq then
                 bestDistSq = distSq
-                bestSnapshot = {
-                    id = snapshot.id or id,
-                    name = snapshot.name or "PNC NPC",
-                    x = snapshot.x,
-                    y = snapshot.y,
-                    z = snapshot.z,
+                    bestSnapshot = {
+                        id = snapshot.id or id,
+                        name = snapshot.displayName or snapshot.name or "PNC NPC",
+                        archetypeLabel = snapshot.archetypeLabel or "NPC",
+                        x = snapshot.x,
+                        y = snapshot.y,
+                        z = snapshot.z,
                 }
             end
         end
@@ -243,9 +244,9 @@ local function onFillWorldObjectContextMenu(playerNum, context, worldobjects, te
         subMenu:addOption("Toggle Combat Debug", nil, function()
             sendDebug("toggle_debug", { id = record.id })
         end)
-        subMenu:addOption("View Skills", nil, function()
-            if PNC.SkillsWindow and PNC.SkillsWindow.Toggle then
-                PNC.SkillsWindow.Toggle(record.id)
+        subMenu:addOption("View Character", nil, function()
+            if PNC.CharacterWindow and PNC.CharacterWindow.Toggle then
+                PNC.CharacterWindow.Toggle(record.id)
             end
         end)
         snapshot = ClientState.snapshots and ClientState.snapshots[record.id] or nil

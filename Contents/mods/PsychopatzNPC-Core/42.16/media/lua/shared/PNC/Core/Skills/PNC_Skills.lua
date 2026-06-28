@@ -4,6 +4,7 @@ PNC.Skills = PNC.Skills or {}
 local Skills = PNC.Skills
 local Identity = PNC.Identity
 local Catalog = PNC.SkillCatalog
+local Archetypes = PNC.Archetypes
 
 local function ensureProgress(record)
     if not record then
@@ -44,6 +45,8 @@ local function getSpecialtyMap(record)
 end
 
 local function resolveBaseLevel(record, skillID)
+    local archetype
+    local bias
     local specialty
     local level
     local lowered
@@ -73,6 +76,17 @@ local function resolveBaseLevel(record, skillID)
         end
     elseif lowered == "fitness" or lowered == "strength" then
         level = Identity.Range(record.identitySeed, "skill:" .. tostring(skillID), 1, 3)
+    end
+
+    archetype = Archetypes and Archetypes.Get and Archetypes.Get(record.archetypeID) or nil
+    bias = archetype and archetype.skillBias and archetype.skillBias[skillID] or nil
+    if type(bias) == "table" then
+        level = math.max(level, Identity.Range(
+            record.identitySeed,
+            "skill_bias:" .. tostring(archetype.id) .. ":" .. tostring(skillID),
+            tonumber(bias.min) or level,
+            tonumber(bias.max) or level
+        ))
     end
 
     return clampLevel(level)

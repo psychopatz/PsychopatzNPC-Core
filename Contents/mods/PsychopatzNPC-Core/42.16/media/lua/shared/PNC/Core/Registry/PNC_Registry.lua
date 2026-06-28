@@ -4,6 +4,7 @@ PNC.Registry = PNC.Registry or {}
 local Registry = PNC.Registry
 local Core = PNC.Core
 local Const = PNC.Const
+local Persistence = PNC.Persistence
 
 Registry.Data = Registry.Data or {}
 Registry.LiveByID = Registry.LiveByID or {}
@@ -23,7 +24,7 @@ function Registry.Load()
         return
     end
     store = getStore()
-    Registry.Data = store.NPCs
+    Registry.Data = Persistence and Persistence.LoadAll and Persistence.LoadAll(store.NPCs) or (store.NPCs or {})
     Registry.LiveByID = {}
     Registry.Loaded = true
     Core.LogInfo("Registry loaded with " .. tostring(Core.TableSize(Registry.Data)) .. " NPC records.")
@@ -41,8 +42,10 @@ function Registry.Save()
         return
     end
     Registry.EnsureLoaded()
+    Registry.RefreshLivePositions()
     store = getStore()
-    store.NPCs = Registry.Data
+    store.Version = Const.PERSISTENCE_VERSION
+    store.NPCs = Persistence and Persistence.SaveAll and Persistence.SaveAll(Registry.Data) or Registry.Data
     if ModData and ModData.transmit then
         ModData.transmit(Const.MODDATA_KEY)
     end

@@ -15,3 +15,4 @@
 - better ranged aim and projectile handling
 - downed, revive, and corpse recovery extensions
 - migration adapter layer for DynamicTrading
+- deeper medical/body-part gameplay plugged into the NPC character window shell

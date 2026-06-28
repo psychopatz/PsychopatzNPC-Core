@@ -6,6 +6,7 @@ local Const = PNC.Const
 Const.MOD_ID = "PsychopatzNPC-Core"
 Const.MODULE = "PNC"
 Const.MODDATA_KEY = "PNC_Core_Global"
+Const.PERSISTENCE_VERSION = 2
 
 Const.CMD_FULL_SYNC_REQUEST = "RequestFullSync"
 Const.CMD_FULL_SYNC = "FullSync"
