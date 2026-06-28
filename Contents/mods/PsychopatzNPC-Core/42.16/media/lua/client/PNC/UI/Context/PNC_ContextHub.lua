@@ -1,3 +1,9 @@
+--[[
+    PNC Context Hub
+    Central reusable NPC selection and right-click hub. Providers attach
+    command, debug, dialogue, and future interaction options per selected NPC.
+]]
+
 PNC = PNC or {}
 PNC.ContextHub = PNC.ContextHub or {}
 

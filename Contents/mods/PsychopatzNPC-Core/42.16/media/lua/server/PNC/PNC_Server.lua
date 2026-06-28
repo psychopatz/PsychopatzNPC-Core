@@ -1,3 +1,9 @@
+--[[
+    PNC Server Authority
+    Owns server-side NPC ticking, presence reconciliation, sync dispatch, and
+    debug command routing. Clients never create authoritative NPC records here.
+]]
+
 if isClient() and not isServer() then
     return
 end
@@ -41,7 +47,7 @@ end
 local function buildSnapshotList()
     local list = {}
     Registry.ForEach(function(record)
-        list[#list + 1] = Network.BuildRosterSnapshot(record)
+        list[#list + 1] = Network.BuildSnapshot(record)
     end)
     return list
 end

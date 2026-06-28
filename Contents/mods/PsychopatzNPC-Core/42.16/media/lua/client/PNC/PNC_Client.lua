@@ -1,3 +1,10 @@
+--[[
+    PNC Client Command Surface
+    Owns client-side command requests, server snapshot intake, and the top-level
+    world context hook. Focused live-body snapshot application stays in the
+    dedicated client presence sync module.
+]]
+
 PNC = PNC or {}
 PNC.Client = PNC.Client or {}
 
@@ -9,18 +16,22 @@ local ClientState = PNC.Network.ClientState
 
 local function requestFullSync()
     local player = getSpecificPlayer(0)
+    ClientState.lastFullSyncRequestAt = Core.Now()
     if player and sendClientCommand then
         sendClientCommand(player, Const.MODULE, Const.CMD_FULL_SYNC_REQUEST, {})
         return
     end
-    if PNC.Registry and PNC.Network and PNC.Network.BuildRosterSnapshot then
+    if PNC.Registry and PNC.Network and PNC.Network.BuildSnapshot then
         ClientState.snapshots = {}
         PNC.Registry.ForEach(function(record)
-            local snapshot = PNC.Network.BuildRosterSnapshot(record)
+            local snapshot = PNC.Network.BuildSnapshot(record)
             ClientState.snapshots[snapshot.id] = snapshot
         end)
+        ClientState.lastSyncReceiveAt = Core.Now()
     end
 end
+
+Client.RequestFullSync = requestFullSync
 
 function Client.RequestCharacterPayload(npcId)
     local player = getSpecificPlayer(0)
@@ -50,6 +61,7 @@ end
 function Client.HandleServerCommand(command, args)
     local snapshot
     local i
+    ClientState.lastSyncReceiveAt = Core.Now()
     if command == Const.CMD_FULL_SYNC then
         ClientState.snapshots = {}
         ClientState.characterPayloads = {}

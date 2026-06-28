@@ -1,3 +1,9 @@
+--[[
+    PNC Combat Tactics
+    Owns short-range repositioning and conservative kiting rules so melee and
+    ranged NPCs can create space without becoming fully evasive.
+]]
+
 PNC = PNC or {}
 PNC.CombatTactics = PNC.CombatTactics or {}
 

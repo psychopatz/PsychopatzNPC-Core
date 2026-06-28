@@ -1,3 +1,9 @@
+--[[
+    PNC Animation
+    Single writer for PNC animation variables, locomotion flags, downed state,
+    and custom bump-trigger playback on live NPC bodies.
+]]
+
 PNC = PNC or {}
 PNC.Animation = PNC.Animation or {}
 

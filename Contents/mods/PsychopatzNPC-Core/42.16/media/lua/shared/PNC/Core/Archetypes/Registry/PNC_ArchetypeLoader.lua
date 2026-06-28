@@ -1,32 +1,29 @@
+--[[
+    PNC Archetype Loader
+    Owns importer-driven archetype module bootstrapping. The importer registers
+    module IDs; the loader resolves and requires them once.
+]]
+
 PNC = PNC or {}
 PNC.Archetypes = PNC.Archetypes or {}
 
 local Archetypes = PNC.Archetypes
 local Core = PNC.Core
 
-local defaultArchetypeModules = {
-    "General",
-    "Farmer",
-    "Mechanic",
-    "Doctor",
-    "Foreman",
-    "Scavenger",
-}
-
-local function registerDefaults()
-    local i
-    for i = 1, #defaultArchetypeModules do
-        if PNC.RegisterArchetypeModule then
-            PNC.RegisterArchetypeModule(defaultArchetypeModules[i])
-        end
-    end
-end
-
 local function loadDefaults()
     local totalLoaded
     local errors
     local i
-    registerDefaults()
+    if not PNC.ArchetypeImporterLoaded then
+        if PNC.ArchetypeImporter and type(PNC.ArchetypeImporter.modules) == "table" and PNC.RegisterArchetypeModule then
+            for i = 1, #PNC.ArchetypeImporter.modules do
+                PNC.RegisterArchetypeModule(PNC.ArchetypeImporter.modules[i])
+            end
+            PNC.ArchetypeImporterLoaded = true
+        else
+            require "PNC/ArchetypeDefinitions/PNC_ArchetypeImporter"
+        end
+    end
     if not Archetypes.LoadModules then
         return
     end

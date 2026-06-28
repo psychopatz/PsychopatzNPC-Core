@@ -1,3 +1,9 @@
+--[[
+    PNC Path Service
+    Owns live embodied path requests, repath recovery, door and window
+    interaction, and abstract travel stepping for far-away NPC simulation.
+]]
+
 PNC = PNC or {}
 PNC.PathService = PNC.PathService or {}
 
@@ -43,7 +49,7 @@ local function setWalkAnim(zombie, record, mode)
         zombie:setUseless(false)
     end
     if previousWalkType == "" and zombie.setBumpType then
-        zombie:setBumpType(mode == "run" and "IdleToRun" or "IdleToWalk")
+        zombie:setBumpType(mode == "run" and "PNC_IdleToRun" or "PNC_IdleToWalk")
     end
     if mode == "crawl" then
         Animation.Apply(zombie, record, "Crawl")

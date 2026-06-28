@@ -1,3 +1,9 @@
+--[[
+    PNC Archetype Registry
+    Owns self-registering archetype metadata, registration APIs, and module
+    specs. Runtime systems read from this registry but do not define archetypes.
+]]
+
 PNC = PNC or {}
 PNC.Archetypes = PNC.Archetypes or {}
 

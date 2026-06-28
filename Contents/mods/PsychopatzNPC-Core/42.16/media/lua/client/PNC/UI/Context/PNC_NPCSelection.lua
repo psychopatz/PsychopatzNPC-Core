@@ -1,3 +1,9 @@
+--[[
+    PNC NPC Selection
+    Owns cursor-near NPC collection and entry building for the shared context
+    hub so multiple NPCs can be selected from one world-click.
+]]
+
 PNC = PNC or {}
 PNC.NPCSelection = PNC.NPCSelection or {}
 

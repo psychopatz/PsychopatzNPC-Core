@@ -1,3 +1,9 @@
+--[[
+    PNC Perception
+    Owns nearby hostile resolution, zombie target scanning, and helper queries
+    used by behavior, combat, and zombie aggro bridge systems.
+]]
+
 PNC = PNC or {}
 PNC.Perception = PNC.Perception or {}
 

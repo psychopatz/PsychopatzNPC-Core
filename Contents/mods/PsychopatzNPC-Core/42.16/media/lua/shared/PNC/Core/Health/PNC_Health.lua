@@ -1,3 +1,9 @@
+--[[
+    PNC Health
+    Single writer for NPC HP, incapacitation, revive windows, and death state.
+    It also owns recent-damage timers that drive overhead combat visibility.
+]]
+
 PNC = PNC or {}
 PNC.Health = PNC.Health or {}
 

@@ -1,3 +1,9 @@
+--[[
+    PNC Behavior System
+    Owns high-level live and abstract behavior ticking, order execution, combat
+    engagement routing, and movement intent selection.
+]]
+
 PNC = PNC or {}
 PNC.BehaviorSystem = PNC.BehaviorSystem or {}
 

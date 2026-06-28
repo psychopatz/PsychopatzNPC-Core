@@ -1,3 +1,9 @@
+--[[
+    PNC Combat Unarmed
+    Owns unarmed shove and ground-finisher animation helpers plus zombie shove
+    application used by melee and incapacitated combat flows.
+]]
+
 PNC = PNC or {}
 PNC.CombatUnarmed = PNC.CombatUnarmed or {}
 
@@ -57,9 +63,9 @@ function Unarmed.PlayShove(zombie, record, target)
         zombie:faceThisObject(target)
     end
     if Animation and Animation.PlayBump then
-        Animation.PlayBump(zombie, record, "Shove")
+        Animation.PlayBump(zombie, record, "PNC_Shove")
     elseif zombie.setBumpType then
-        zombie:setBumpType("Shove")
+        zombie:setBumpType("PNC_Shove")
     end
     if zombie.playSound then
         zombie:playSound("AttackShove")
@@ -97,20 +103,17 @@ function Unarmed.ApplyZombieShove(attackerZombie, targetZombie)
     if targetZombie.setKnockedDown then
         targetZombie:setKnockedDown(true)
     end
-    if targetZombie.pathToCharacter then
-        targetZombie:pathToCharacter(attackerZombie)
-    end
     return true
 end
 
 function Unarmed.PlayGroundAttack(zombie, record, target)
     local Animation = PNC.Animation
-    local anim = "Attack2HStamp"
+    local anim = "PNC_Attack2HStamp"
     if not zombie then
         return anim
     end
     if target and (target.isCrawling and target:isCrawling() or target.isProne and target:isProne()) then
-        anim = "Attack2HFloor"
+        anim = "PNC_Attack2HFloor"
     end
     if Animation and Animation.PlayBump then
         Animation.PlayBump(zombie, record, anim)
@@ -118,7 +121,7 @@ function Unarmed.PlayGroundAttack(zombie, record, target)
         zombie:setBumpType(anim)
     end
     if zombie.playSound then
-        if anim == "Attack2HStamp" then
+        if anim == "PNC_Attack2HStamp" then
             zombie:playSound("AttackStomp")
             zombie:playSound(zombie:isFemale() and "VoiceFemaleMeleeStomp" or "VoiceMaleMeleeStomp")
         else

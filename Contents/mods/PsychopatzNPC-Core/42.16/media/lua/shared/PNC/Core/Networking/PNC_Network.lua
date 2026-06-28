@@ -1,3 +1,10 @@
+--[[
+    PNC Networking
+    Owns compact roster/full snapshot payloads and server-to-client replication.
+    It serializes canonical view data only and leaves client visual application
+    to dedicated client modules.
+]]
+
 PNC = PNC or {}
 PNC.Network = PNC.Network or {}
 PNC.Network.ClientState = PNC.Network.ClientState or {
@@ -59,6 +66,52 @@ local function buildCombatSummary(record)
     }
 end
 
+local function buildVisualState(record)
+    local runtime = record and record.runtime or nil
+    local path = runtime and runtime.pathing or nil
+    local attack = runtime and runtime.attackAction or nil
+    local now = Core.Now()
+    local healthState = record and record.health and tostring(record.health.state or "normal") or "normal"
+    local moving = path and path.goalX ~= nil and path.finished ~= true or false
+    local mode = moving and tostring(path.mode or "walk") or nil
+    local walkType = ""
+    local anim = "Idle"
+    local attackActive = attack ~= nil and now < (tonumber(attack.finishAt) or 0)
+
+    if healthState == "incapacitated" then
+        walkType = moving and "Walk" or ""
+        anim = moving and "Crawl" or "Downed"
+    elseif moving then
+        if mode == "run" then
+            walkType = "Run"
+            anim = "Run"
+        elseif mode == "sneak" then
+            walkType = "SneakWalk"
+            anim = "SneakWalk"
+        elseif mode == "crawl" then
+            walkType = "Walk"
+            anim = "Crawl"
+        else
+            walkType = "Walk"
+            anim = "Walk"
+        end
+    end
+
+    if attackActive and attack and attack.anim then
+        anim = tostring(attack.anim)
+    end
+
+    return {
+        moving = moving,
+        mode = mode,
+        walkType = walkType,
+        anim = anim,
+        attackActive = attackActive,
+        attackAnim = attack and attack.anim or nil,
+        attackFinishAt = attack and attack.finishAt or 0,
+    }
+end
+
 function Network.BuildRosterSnapshot(record)
     local aiState
     local inCombat
@@ -101,12 +154,14 @@ function Network.BuildSnapshot(record)
     local identity
     local inventorySummary
     local combat
+    local visualState
     aiState, inCombat = resolveAIState(record)
     staminaInfo = Stamina and Stamina.BuildSnapshot and Stamina.BuildSnapshot(record) or {}
     equipmentInfo = Equipment and Equipment.Describe and Equipment.Describe(record) or {}
     identity = buildIdentitySummary(record)
     inventorySummary = Inventory and Inventory.BuildSummaryPayload and Inventory.BuildSummaryPayload(record) or nil
     combat = buildCombatSummary(record)
+    visualState = buildVisualState(record)
     return {
         id = record.id,
         name = identity.displayName,
@@ -146,6 +201,7 @@ function Network.BuildSnapshot(record)
         presenceRevision = record.presenceRevision,
         aiState = aiState,
         inCombat = inCombat,
+        visualState = visualState,
         equipmentSummary = {
             primaryFullType = record.equipment and record.equipment.primaryFullType or nil,
             secondaryFullType = record.equipment and record.equipment.secondaryFullType or nil,
