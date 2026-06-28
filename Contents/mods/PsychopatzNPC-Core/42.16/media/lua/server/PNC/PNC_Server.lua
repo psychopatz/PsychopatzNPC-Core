@@ -39,7 +39,7 @@ local function getSyncInterval(record)
     if runtime and runtime.target then
         return 100
     end
-    if runtime and runtime.pathing and runtime.pathing.goalX ~= nil and runtime.pathing.finished ~= true then
+    if runtime and runtime.pathing and (runtime.pathing.phase == "requested" or runtime.pathing.phase == "active") then
         return 150
     end
     return 500
@@ -78,9 +78,6 @@ local function processRecord(record, now)
     if Stamina and Stamina.Update then
         Stamina.Update(record, zombie, now)
     end
-    if zombie and record.alive ~= false then
-        PathService.Pump(record, zombie)
-    end
 
     if record.alive == false then
         if record.lastSyncAt ~= record.presenceRevision then
@@ -90,16 +87,15 @@ local function processRecord(record, now)
         return
     end
 
-    if now < (tonumber(record.nextThinkAt) or 0) then
-        if zombie and Animation and Animation.SyncLocomotion then
-            Animation.SyncLocomotion(zombie, record)
-        end
-        return
+    if now >= (tonumber(record.nextThinkAt) or 0) then
+        Behavior.Tick(record, zombie, now)
+        record.lastThinkAt = now
+        record.nextThinkAt = now + Scheduler.GetCadence(record)
     end
 
-    Behavior.Tick(record, zombie, now)
-    record.lastThinkAt = now
-    record.nextThinkAt = now + Scheduler.GetCadence(record)
+    if zombie and record.alive ~= false then
+        PathService.Pump(record, zombie)
+    end
 
     if (now - (tonumber(record.lastSyncAt) or 0)) >= getSyncInterval(record) then
         Network.BroadcastRecord(record, "tick")

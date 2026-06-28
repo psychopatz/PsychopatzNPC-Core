@@ -7,6 +7,7 @@
 - melee, ranged, and downed shove actions spend stamina through one authority path
 - skill-aware attack spend can reduce effective stamina cost
 - recovery differs for idle, moving, combat, and downed states
+- tactical retreat can temporarily opt into idle-rate stamina recovery while moving away from danger
 - nameplates decide draw visibility from stamina summary data, not direct runtime internals
 
 ## Integration Points

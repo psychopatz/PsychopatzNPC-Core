@@ -73,7 +73,7 @@ local function buildVisualState(record)
     local attack = runtime and runtime.attackAction or nil
     local now = Core.Now()
     local healthState = record and record.health and tostring(record.health.state or "normal") or "normal"
-    local moving = path and path.goalX ~= nil and path.finished ~= true or false
+    local moving = path and (path.phase == "requested" or path.phase == "active") or false
     local mode = moving and tostring(path.mode or "walk") or nil
     local walkType = ""
     local anim = "Idle"
@@ -243,6 +243,11 @@ function Network.BuildSnapshot(record)
             stealthActive = record.runtime and record.runtime.stealthActive == true or false,
             debugEnabled = record.runtime and record.runtime.debug == true or false,
             presenceState = record.presenceState,
+            movePhase = record.runtime and record.runtime.pathing and record.runtime.pathing.phase or "idle",
+            moveMode = record.runtime and record.runtime.pathing and record.runtime.pathing.mode or nil,
+            moveGoal = record.runtime and record.runtime.pathing and record.runtime.pathing.goal or nil,
+            moveCancelReason = record.runtime and record.runtime.pathing and record.runtime.pathing.cancelReason or nil,
+            moveBlockReason = record.runtime and record.runtime.pathing and record.runtime.pathing.blockReason or nil,
         },
     }
 end

@@ -23,6 +23,7 @@ Archetypes.Registry = Archetypes.Registry or {
 }
 
 local Registry = Archetypes.Registry
+PNC.PendingArchetypeBundles = PNC.PendingArchetypeBundles or {}
 
 local function appendUnique(list, value)
     local i
@@ -180,6 +181,56 @@ function PNC.RegisterArchetypeLoadout(id, data)
     end
     Registry.loadouts[id] = Core.DeepCopy(data)
     return true
+end
+
+function Archetypes.ApplyBundle(id, bundle)
+    local applied = false
+    id = normalizeString(id)
+    if not id or type(bundle) ~= "table" then
+        return false
+    end
+    if type(bundle.definition) == "table" then
+        PNC.RegisterArchetype(id, bundle.definition)
+        applied = true
+    end
+    if type(bundle.looks) == "table" then
+        PNC.RegisterArchetypeLooks(id, bundle.looks)
+        applied = true
+    end
+    if type(bundle.skills) == "table" then
+        PNC.RegisterArchetypeSkills(id, bundle.skills)
+        applied = true
+    end
+    if type(bundle.loadout) == "table" then
+        PNC.RegisterArchetypeLoadout(id, bundle.loadout)
+        applied = true
+    end
+    return applied
+end
+
+function Archetypes.ApplyPendingBundles()
+    local source = PNC.PendingArchetypeBundles or {}
+    local id
+    local bundle
+    local applied = 0
+    for id, bundle in pairs(source) do
+        if Archetypes.ApplyBundle(id, bundle) then
+            Registry.pendingBundles = Registry.pendingBundles or {}
+            Registry.pendingBundles[id] = Core.DeepCopy(bundle)
+            applied = applied + 1
+        end
+    end
+    return applied
+end
+
+function PNC.RegisterArchetypeBundle(id, bundle)
+    id = normalizeString(id)
+    if not id or type(bundle) ~= "table" then
+        return false
+    end
+    PNC.PendingArchetypeBundles = PNC.PendingArchetypeBundles or {}
+    PNC.PendingArchetypeBundles[id] = Core.DeepCopy(bundle)
+    return Archetypes.ApplyBundle(id, bundle)
 end
 
 function Archetypes.Get(id)

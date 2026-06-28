@@ -8,6 +8,7 @@
 - the owner must actually be sneaking
 - stealth follow is cleared if the owner is running, sprinting, in a vehicle, dead, or too far away
 - if the owner is discovered by nearby zombies, follow-stealth breaks and normal combat resumes
+- stealth diagnostics now log only on state transitions so crouch-follow failures can be traced without per-tick spam
 
 ## Integration Points
 - `PNC_BehaviorSystem` asks stealth for follow move mode

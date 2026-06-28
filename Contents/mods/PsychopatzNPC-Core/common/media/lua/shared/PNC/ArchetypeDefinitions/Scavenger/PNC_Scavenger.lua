@@ -1,5 +1,13 @@
-if PNC and PNC.RegisterArchetype then
-    PNC.RegisterArchetype("Scavenger", {
+--[[
+    PNC Scavenger Archetype Definition
+    Declares a preload-safe hostile archetype bundle for scavenger NPCs.
+]]
+
+PNC = PNC or {}
+PNC.PendingArchetypeBundles = PNC.PendingArchetypeBundles or {}
+
+local bundle = {
+    definition = {
         label = "Scavenger",
         type = "raider",
         tags = { "hostile", "scavenger" },
@@ -10,9 +18,8 @@ if PNC and PNC.RegisterArchetype then
             HuntNearestPlayer = true,
             EngageTarget = true,
         },
-    })
-
-    PNC.RegisterArchetypeLooks("Scavenger", {
+    },
+    looks = {
         spawnOutfit = {
             male = "PNCHostileMale",
             female = "PNCHostileFemale",
@@ -29,16 +36,14 @@ if PNC and PNC.RegisterArchetype then
             { "Base.Hat_BalaclavaFace", "Base.Jacket_PaddedDOWN", "Base.Trousers_Padded", "Base.Shoes_BlackBoots" },
             { "Base.Hat_HeadSack_Burlap", "Base.Dress_Knees_Crafted_DenimRandom", "Base.Shoes_TrainerTINT" },
         },
-    })
-
-    PNC.RegisterArchetypeSkills("Scavenger", {
+    },
+    skills = {
         Sneaking = { min = 3, max = 6 },
         Nimble = { min = 3, max = 6 },
         ShortBlade = { min = 2, max = 5 },
         Maintenance = { min = 1, max = 4 },
-    })
-
-    PNC.RegisterArchetypeLoadout("Scavenger", {
+    },
+    loadout = {
         bagChoices = { "Base.Bag_Schoolbag", "Base.Bag_DuffelBag" },
         primaryChoices = { "Base.KitchenKnife", "Base.Pipe", "Base.HandAxe" },
         supplies = {
@@ -46,5 +51,11 @@ if PNC and PNC.RegisterArchetype then
             { type = "Base.WaterBottleEmpty", stack = 1, preferredContainer = "bag" },
             { type = "Base.Crisps", stack = 1, preferredContainer = "bag" },
         },
-    })
+    },
+}
+
+PNC.PendingArchetypeBundles.Scavenger = bundle
+
+if PNC.RegisterArchetypeBundle then
+    PNC.RegisterArchetypeBundle("Scavenger", bundle)
 end

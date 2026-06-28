@@ -1,5 +1,14 @@
-if PNC and PNC.RegisterArchetype then
-    PNC.RegisterArchetype("General", {
+--[[
+    PNC General Archetype Definition
+    Declares the baseline survivor archetype bundle in a preload-safe format so
+    Project Zomboid load order cannot drop the registration on the floor.
+]]
+
+PNC = PNC or {}
+PNC.PendingArchetypeBundles = PNC.PendingArchetypeBundles or {}
+
+local bundle = {
+    definition = {
         label = "General Survivor",
         type = "survivor",
         tags = { "civilian", "companion" },
@@ -10,9 +19,8 @@ if PNC and PNC.RegisterArchetype then
             GuardAnchor = true,
             PatrolRoute = true,
         },
-    })
-
-    PNC.RegisterArchetypeLooks("General", {
+    },
+    looks = {
         spawnOutfit = {
             male = "PNCCompanionMale",
             female = "PNCCompanionFemale",
@@ -31,16 +39,14 @@ if PNC and PNC.RegisterArchetype then
             { "Base.Dress_Normal", "Base.Hat_SummerHat", "Base.Shoes_Sandals" },
             { "Base.Shirt_CropTopTINT", "Base.Shorts_ShortDenim", "Base.Shoes_Random" },
         },
-    })
-
-    PNC.RegisterArchetypeSkills("General", {
+    },
+    skills = {
         Strength = { min = 1, max = 4 },
         Fitness = { min = 1, max = 4 },
         Nimble = { min = 1, max = 3 },
         Sneaking = { min = 1, max = 3 },
-    })
-
-    PNC.RegisterArchetypeLoadout("General", {
+    },
+    loadout = {
         bagChoices = { "Base.Bag_Schoolbag", "Base.Bag_DuffelBag" },
         primaryChoices = { "Base.Hammer", "Base.KitchenKnife", "Base.BaseballBat" },
         supplies = {
@@ -48,5 +54,11 @@ if PNC and PNC.RegisterArchetype then
             { type = "Base.WaterBottleFull", stack = 1, preferredContainer = "bag" },
             { type = "Base.Crisps", stack = 1, preferredContainer = "bag" },
         },
-    })
+    },
+}
+
+PNC.PendingArchetypeBundles.General = bundle
+
+if PNC.RegisterArchetypeBundle then
+    PNC.RegisterArchetypeBundle("General", bundle)
 end

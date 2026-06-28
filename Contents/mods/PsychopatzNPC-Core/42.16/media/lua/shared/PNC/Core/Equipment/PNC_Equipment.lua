@@ -185,6 +185,27 @@ local function clearExplicitWornItems(zombie)
     end
 end
 
+local function addClothingVisual(zombie, fullType)
+    local itemVisuals
+    local itemVisual
+    if not zombie or not fullType or not ItemVisual then
+        return false, "visual_api_unavailable"
+    end
+    itemVisuals = zombie.getItemVisuals and zombie:getItemVisuals() or nil
+    if not itemVisuals or not itemVisuals.add then
+        return false, "missing_item_visuals"
+    end
+    itemVisual = ItemVisual.new()
+    if itemVisual.setItemType then
+        itemVisual:setItemType(fullType)
+    end
+    if itemVisual.setClothingItemName then
+        itemVisual:setClothingItemName(fullType)
+    end
+    itemVisuals:add(itemVisual)
+    return true, "visual_added"
+end
+
 local function applyWornItems(zombie, equipment)
     local entries = Equipment.GetOrderedWornEntries(equipment)
     local appliedCount = 0
@@ -197,23 +218,31 @@ local function applyWornItems(zombie, equipment)
     local errorMessage
 
     if #entries <= 0 then
+        clearExplicitWornItems(zombie)
         return true, "worn:none"
     end
 
+    clearExplicitWornItems(zombie)
+
     for i = 1, #entries do
         entry = entries[i]
-        item, createReason = Equipment.CreateItem(entry.fullType)
-        if item then
-            ok, errorMessage = safeInvoke(zombie, "setWornItem", entry.bodyLocation, item)
-            if not ok then
-                failureCount = failureCount + 1
-                Core.LogWarn("PNC equipment failed to wear " .. tostring(entry.fullType) .. " on " .. tostring(entry.bodyLocation) .. ": " .. tostring(errorMessage))
-            else
-                appliedCount = appliedCount + 1
-            end
+        ok, errorMessage = addClothingVisual(zombie, entry.fullType)
+        if ok then
+            appliedCount = appliedCount + 1
         else
-            failureCount = failureCount + 1
-            Core.LogWarn("PNC equipment could not create worn item " .. tostring(entry.fullType) .. ": " .. tostring(createReason))
+            item, createReason = Equipment.CreateItem(entry.fullType)
+            if item then
+                ok, errorMessage = safeInvoke(zombie, "setWornItem", entry.bodyLocation, item)
+                if not ok then
+                    failureCount = failureCount + 1
+                    Core.LogWarn("PNC equipment failed to wear " .. tostring(entry.fullType) .. " on " .. tostring(entry.bodyLocation) .. ": " .. tostring(errorMessage))
+                else
+                    appliedCount = appliedCount + 1
+                end
+            else
+                failureCount = failureCount + 1
+                Core.LogWarn("PNC equipment could not create worn item " .. tostring(entry.fullType) .. ": " .. tostring(createReason))
+            end
         end
     end
 

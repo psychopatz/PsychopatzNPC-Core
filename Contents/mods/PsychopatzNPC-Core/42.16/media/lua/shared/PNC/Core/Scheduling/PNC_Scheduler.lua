@@ -14,7 +14,7 @@ function Scheduler.GetCadence(record)
     if record.runtime and record.runtime.target then
         return math.min(Const.TICK_LIVE_HOT_MS, 75)
     end
-    if record.runtime and record.runtime.pathing and record.runtime.pathing.goalX ~= nil and record.runtime.pathing.finished ~= true then
+    if record.runtime and record.runtime.pathing and (record.runtime.pathing.phase == "requested" or record.runtime.pathing.phase == "active") then
         return math.min(Const.TICK_LIVE_WARM_MS, 100)
     end
     if tostring(record.activeJob or "") == "PatrolRoute" or tostring(record.activeJob or "") == "FollowOwner" then

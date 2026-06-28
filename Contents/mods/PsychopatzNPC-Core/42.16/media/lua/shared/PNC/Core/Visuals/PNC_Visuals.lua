@@ -121,6 +121,27 @@ local function safeSetWornItem(zombie, item)
     end)
 end
 
+local function addClothingVisual(zombie, fullType)
+    local itemVisuals
+    local itemVisual
+    if not zombie or not fullType or not ItemVisual then
+        return false
+    end
+    itemVisuals = zombie.getItemVisuals and zombie:getItemVisuals() or nil
+    if not itemVisuals or not itemVisuals.add then
+        return false
+    end
+    itemVisual = ItemVisual.new()
+    if itemVisual.setItemType then
+        itemVisual:setItemType(fullType)
+    end
+    if itemVisual.setClothingItemName then
+        itemVisual:setClothingItemName(fullType)
+    end
+    itemVisuals:add(itemVisual)
+    return true
+end
+
 local function applyBaseOutfitItems(zombie, appearance)
     local items
     local i
@@ -134,11 +155,13 @@ local function applyBaseOutfitItems(zombie, appearance)
         return
     end
     for i = 1, #items do
-        item, reason = Equipment.CreateItem(items[i])
-        if item then
-            safeSetWornItem(zombie, item)
-        elseif reason and reason ~= "invalid_full_type" then
-            PNC.Core.LogWarn("PNC visuals could not create outfit item " .. tostring(items[i]) .. ": " .. tostring(reason))
+        if not addClothingVisual(zombie, items[i]) then
+            item, reason = Equipment.CreateItem(items[i])
+            if item then
+                safeSetWornItem(zombie, item)
+            elseif reason and reason ~= "invalid_full_type" then
+                PNC.Core.LogWarn("PNC visuals could not create outfit item " .. tostring(items[i]) .. ": " .. tostring(reason))
+            end
         end
     end
 end

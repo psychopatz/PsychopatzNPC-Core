@@ -2,8 +2,8 @@
 
 ## Shared Core
 - `PNC_Core`: environment helpers, time, players, logging
-- `PNC_Archetypes`: self-registering archetype registry
-- `PNC_ArchetypeLoader`: imports registered archetype modules by convention or explicit module path
+- `PNC_Archetypes`: self-registering archetype registry plus preload-safe archetype bundle application
+- `PNC_ArchetypeLoader`: imports registered archetype modules, applies pending bundles, and logs bootstrap health
 - `PNC_Identity_Factory`: `SurvivorFactory`-first identity resolution
 - `PNC_Identity_Profile`: persisted identity and appearance resolution
 - `PNC_Inventory`: compact player-like inventory tree with template-plus-delta persistence
@@ -24,7 +24,14 @@
 - `PNC_PathService`: live stepping and abstract travel
 - `PNC_OrderSystem`: order normalization and ownership
 - `PNC_JobSystem`: selects active job from order and state
-- `PNC_BehaviorSystem`: executes the active job
+- `PNC_BehaviorSystem`: thin coordinator that executes the active job
+- `PNC_Behavior_MoveIntent`: single behavior-side move intent writer consumed by pathing
+- `PNC_Behavior_Common`: shared owner, movement, and combat-debug helpers
+- `PNC_Behavior_Targeting`: target refresh and facing helpers
+- `PNC_Behavior_Combat`: combat engage sequencing
+- `PNC_Behavior_Companion`: follow, guard, and patrol job handlers
+- `PNC_Behavior_Hostile`: roam, hunt, and direct engage job handlers
+- `PNC_Behavior_Incapacitated`: crawl and downed shove handling
 - `PNC_Presence`: live and abstract transitions, body cleanup
 - `PNC_Scheduler`: cadence rules
 - `PNC_Network`: roster snapshots, live presence snapshots, and on-demand character payloads
@@ -34,6 +41,7 @@
 ## Layout Rule
 - reusable archetype definitions, translation files, clothing XML, and other version-agnostic content belong in `common/media/...`
 - `42.16/media/...` should hold only build-specific runtime Lua and assets that genuinely differ by Project Zomboid version
+- common archetype definition files must store declarative bundles only; runtime registry ownership stays in the versioned core loader/registry
 
 ## Server
 - `PNC_Server`: authority tick, full sync, debug commands

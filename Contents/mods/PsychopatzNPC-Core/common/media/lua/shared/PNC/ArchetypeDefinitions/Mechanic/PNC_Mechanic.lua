@@ -1,5 +1,13 @@
-if PNC and PNC.RegisterArchetype then
-    PNC.RegisterArchetype("Mechanic", {
+--[[
+    PNC Mechanic Archetype Definition
+    Declares a preload-safe archetype bundle for mechanic-flavored survivors.
+]]
+
+PNC = PNC or {}
+PNC.PendingArchetypeBundles = PNC.PendingArchetypeBundles or {}
+
+local bundle = {
+    definition = {
         label = "Mechanic",
         type = "survivor",
         tags = { "civilian", "mechanic" },
@@ -10,9 +18,8 @@ if PNC and PNC.RegisterArchetype then
             GuardAnchor = true,
             PatrolRoute = true,
         },
-    })
-
-    PNC.RegisterArchetypeLooks("Mechanic", {
+    },
+    looks = {
         spawnOutfit = {
             male = "PNCCompanionMale",
             female = "PNCCompanionFemale",
@@ -29,16 +36,14 @@ if PNC and PNC.RegisterArchetype then
             { "Base.Hat_BaseballCap_Fossoil", "Base.Tshirt_Fossoil", "Base.Trousers_Denim", "Base.Shoes_WorkBoots" },
             { "Base.Hat_BaseballCap_ThunderGas", "Base.Boilersuit_BlueRed", "Base.Shoes_WorkBoots" },
         },
-    })
-
-    PNC.RegisterArchetypeSkills("Mechanic", {
+    },
+    skills = {
         Mechanics = { min = 5, max = 8 },
         Electrical = { min = 2, max = 5 },
         Maintenance = { min = 3, max = 6 },
         ShortBlunt = { min = 2, max = 4 },
-    })
-
-    PNC.RegisterArchetypeLoadout("Mechanic", {
+    },
+    loadout = {
         bagChoices = { "Base.Toolbox_Mechanic", "Base.Bag_DuffelBag" },
         primaryChoices = { "Base.PipeWrench", "Base.Wrench", "Base.Hammer" },
         supplies = {
@@ -46,5 +51,11 @@ if PNC and PNC.RegisterArchetype then
             { type = "Base.Screwdriver", stack = 1, preferredContainer = "bag" },
             { type = "Base.EngineParts", stack = 1, preferredContainer = "bag" },
         },
-    })
+    },
+}
+
+PNC.PendingArchetypeBundles.Mechanic = bundle
+
+if PNC.RegisterArchetypeBundle then
+    PNC.RegisterArchetypeBundle("Mechanic", bundle)
 end

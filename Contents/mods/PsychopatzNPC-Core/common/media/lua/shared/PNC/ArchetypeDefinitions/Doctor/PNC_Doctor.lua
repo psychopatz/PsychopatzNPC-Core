@@ -1,5 +1,13 @@
-if PNC and PNC.RegisterArchetype then
-    PNC.RegisterArchetype("Doctor", {
+--[[
+    PNC Doctor Archetype Definition
+    Declares a preload-safe archetype bundle for doctor-flavored survivors.
+]]
+
+PNC = PNC or {}
+PNC.PendingArchetypeBundles = PNC.PendingArchetypeBundles or {}
+
+local bundle = {
+    definition = {
         label = "Doctor",
         type = "survivor",
         tags = { "civilian", "medical" },
@@ -10,9 +18,8 @@ if PNC and PNC.RegisterArchetype then
             GuardAnchor = true,
             PatrolRoute = true,
         },
-    })
-
-    PNC.RegisterArchetypeLooks("Doctor", {
+    },
+    looks = {
         spawnOutfit = {
             male = "PNCCompanionMale",
             female = "PNCCompanionFemale",
@@ -29,15 +36,13 @@ if PNC and PNC.RegisterArchetype then
             { "Base.Hat_HeadMirrorUP", "Base.JacketLong_Doctor", "Base.Shirt_FormalBlue", "Base.Trousers_Black", "Base.Shoes_Black" },
             { "Base.Glasses_Reading", "Base.Tshirt_Scrubs", "Base.Trousers_Scrubs", "Base.Shoes_BlueTrainers" },
         },
-    })
-
-    PNC.RegisterArchetypeSkills("Doctor", {
+    },
+    skills = {
         Nimble = { min = 2, max = 4 },
         Sneaking = { min = 1, max = 3 },
         Fitness = { min = 1, max = 3 },
-    })
-
-    PNC.RegisterArchetypeLoadout("Doctor", {
+    },
+    loadout = {
         bagChoices = { "Base.Bag_DoctorBag", "Base.Bag_Satchel" },
         primaryChoices = { "Base.Scalpel", "Base.KitchenKnife", "Base.Hammer" },
         supplies = {
@@ -45,5 +50,11 @@ if PNC and PNC.RegisterArchetype then
             { type = "Base.Disinfectant", stack = 1, preferredContainer = "bag" },
             { type = "Base.Pills", stack = 1, preferredContainer = "bag" },
         },
-    })
+    },
+}
+
+PNC.PendingArchetypeBundles.Doctor = bundle
+
+if PNC.RegisterArchetypeBundle then
+    PNC.RegisterArchetypeBundle("Doctor", bundle)
 end

@@ -66,6 +66,32 @@ local function buildZombieTarget(zombie, distSq)
     }
 end
 
+local function collectEnemyZombies(record, radius)
+    local zombies
+    local results = {}
+    local i
+    local zombie
+    local distSq
+    if not record or not Spatial or not Spatial.QueryZombies then
+        return results
+    end
+    radius = tonumber(radius) or Const.ZOMBIE_TARGET_RADIUS
+    zombies = Spatial.QueryZombies(record.x, record.y, radius)
+    for i = 1, #zombies do
+        zombie = zombies[i]
+        if zombie and (not zombie:isDead()) and (not isManagedNPCBody(zombie)) and math.abs(zombie:getZ() - record.z) < 1 then
+            distSq = Core.DistanceSq(record.x, record.y, zombie:getX(), zombie:getY())
+            if distSq <= (radius * radius) then
+                results[#results + 1] = {
+                    zombie = zombie,
+                    distSq = distSq,
+                }
+            end
+        end
+    end
+    return results
+end
+
 function Perception.FindNearestEnemyPlayer(record, radius)
     local players = Spatial.QueryPlayers(record.x, record.y, radius)
     local best = nil
@@ -129,31 +155,65 @@ function Perception.FindNearestEnemyZombie(record, radius)
     local best
     local bestDistSq
     local i
-    local zombie
-    local distSq
+    local entry
 
     if not record or record.hostility and record.hostility.attackZombies == false then
         return nil
     end
-    if not Spatial or not Spatial.QueryZombies then
-        return nil
-    end
-    radius = tonumber(radius) or Const.ZOMBIE_TARGET_RADIUS
 
     best = nil
     bestDistSq = math.huge
-    zombies = Spatial.QueryZombies(record.x, record.y, radius)
+    zombies = collectEnemyZombies(record, radius)
     for i = 1, #zombies do
-        zombie = zombies[i]
-        if zombie and (not zombie:isDead()) and (not isManagedNPCBody(zombie)) and math.abs(zombie:getZ() - record.z) < 1 then
-            distSq = Core.DistanceSq(record.x, record.y, zombie:getX(), zombie:getY())
-            if distSq <= (radius * radius) and distSq < bestDistSq then
-                best = buildZombieTarget(zombie, distSq)
-                bestDistSq = distSq
-            end
+        entry = zombies[i]
+        if entry and entry.distSq < bestDistSq then
+            best = buildZombieTarget(entry.zombie, entry.distSq)
+            bestDistSq = entry.distSq
         end
     end
 
+    return best
+end
+
+function Perception.FindBestEnemyZombie(record, radius)
+    local candidates
+    local best
+    local bestScore
+    local i
+    local j
+    local entry
+    local other
+    local crowdCount
+    local score
+    local crowdRadiusSq = (tonumber(Const.COMBAT_TARGET_CROWD_RADIUS) or 2.2) ^ 2
+    local crowdPenalty = 1.6
+
+    if not record or record.hostility and record.hostility.attackZombies == false then
+        return nil
+    end
+
+    candidates = collectEnemyZombies(record, radius)
+    bestScore = math.huge
+    for i = 1, #candidates do
+        entry = candidates[i]
+        if entry and entry.zombie then
+            crowdCount = 0
+            for j = 1, #candidates do
+                other = candidates[j]
+                if other and other.zombie and other.zombie ~= entry.zombie
+                    and math.abs(other.zombie:getZ() - entry.zombie:getZ()) < 1
+                    and Core.DistanceSq(entry.zombie:getX(), entry.zombie:getY(), other.zombie:getX(), other.zombie:getY()) <= crowdRadiusSq
+                then
+                    crowdCount = crowdCount + 1
+                end
+            end
+            score = entry.distSq + (crowdCount * crowdCount * crowdPenalty)
+            if score < bestScore then
+                best = buildZombieTarget(entry.zombie, entry.distSq)
+                bestScore = score
+            end
+        end
+    end
     return best
 end
 
@@ -161,25 +221,17 @@ function Perception.CountEnemyZombies(record, radius)
     local zombies
     local count = 0
     local i
-    local zombie
-    local distSq
+    local entry
 
     if not record or record.hostility and record.hostility.attackZombies == false then
         return 0
     end
-    if not Spatial or not Spatial.QueryZombies then
-        return 0
-    end
-    radius = tonumber(radius) or Const.ZOMBIE_TARGET_RADIUS
 
-    zombies = Spatial.QueryZombies(record.x, record.y, radius)
+    zombies = collectEnemyZombies(record, radius)
     for i = 1, #zombies do
-        zombie = zombies[i]
-        if zombie and (not zombie:isDead()) and (not isManagedNPCBody(zombie)) and math.abs(zombie:getZ() - record.z) < 1 then
-            distSq = Core.DistanceSq(record.x, record.y, zombie:getX(), zombie:getY())
-            if distSq <= (radius * radius) then
-                count = count + 1
-            end
+        entry = zombies[i]
+        if entry then
+            count = count + 1
         end
     end
 
@@ -223,7 +275,7 @@ function Perception.ResolveCompanionTarget(record)
 
     owner = Core.ResolvePlayerByOnlineID(record.ownerOnlineID) or Core.ResolvePlayerByUsername(record.ownerUsername)
     npcTarget = Perception.FindNearestEnemyNPC(record, defenseRadius)
-    zombieTarget = Perception.FindNearestEnemyZombie(record, defenseRadius)
+    zombieTarget = Perception.FindBestEnemyZombie(record, defenseRadius)
     if npcTarget or zombieTarget then
         return pickNearest(npcTarget, zombieTarget)
     end
@@ -237,7 +289,7 @@ function Perception.ResolveCompanionTarget(record)
             z = owner:getZ(),
             hostility = record.hostility,
         }, defenseRadius)
-        hostileToOwnerZombie = Perception.FindNearestEnemyZombie({
+        hostileToOwnerZombie = Perception.FindBestEnemyZombie({
             id = record.id,
             faction = record.faction,
             x = owner:getX(),
@@ -264,7 +316,7 @@ function Perception.ResolveHostileTarget(record)
         playerTarget = Perception.FindNearestEnemyPlayer(record, 12)
     end
     if hostileConfig.attackZombies ~= false then
-        zombieTarget = Perception.FindNearestEnemyZombie(record, Const.ZOMBIE_TARGET_RADIUS)
+        zombieTarget = Perception.FindBestEnemyZombie(record, Const.ZOMBIE_TARGET_RADIUS)
     end
 
     return pickNearest(pickNearest(npcTarget, playerTarget), zombieTarget)

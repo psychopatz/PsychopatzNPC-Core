@@ -5,6 +5,36 @@ local Stealth = PNC.Stealth
 local Core = PNC.Core
 local Const = PNC.Const
 
+local function logStealthState(record, runtime, reason)
+    local stateKey
+    if not record or not runtime then
+        return
+    end
+    stateKey = table.concat({
+        tostring(runtime.ownerSneaking == true),
+        tostring(runtime.stealthActive == true),
+        tostring(runtime.stealthBroken == true),
+        tostring(reason or runtime.stealthReason or ""),
+    }, "|")
+    if runtime.lastStealthLogKey == stateKey then
+        return
+    end
+    runtime.lastStealthLogKey = stateKey
+    Core.LogRecordDebug(
+        record,
+        "NPC "
+            .. tostring(record.id)
+            .. " stealth ownerSneaking="
+            .. tostring(runtime.ownerSneaking == true)
+            .. " active="
+            .. tostring(runtime.stealthActive == true)
+            .. " broken="
+            .. tostring(runtime.stealthBroken == true)
+            .. " reason="
+            .. tostring(reason or runtime.stealthReason or "unknown")
+    )
+end
+
 local function isManagedNPCBody(zombie)
     local modData
     if not zombie or not zombie.getModData then
@@ -45,6 +75,7 @@ function Stealth.Clear(record, reason)
     runtime.stealthActive = false
     runtime.stealthBroken = false
     runtime.stealthReason = reason or "inactive"
+    logStealthState(record, runtime, runtime.stealthReason)
     return false
 end
 
@@ -148,6 +179,7 @@ function Stealth.UpdateFollowState(record, owner)
     runtime.stealthBroken = discovered == true
     runtime.stealthActive = discovered ~= true
     runtime.stealthReason = discovered and reason or "follow_stealth"
+    logStealthState(record, runtime, runtime.stealthReason)
     return runtime.stealthActive == true
 end
 

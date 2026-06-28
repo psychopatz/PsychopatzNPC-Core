@@ -116,10 +116,12 @@ function Stamina.Update(record, zombie, now)
     local lastUpdatedAt
     local elapsed
     local recoverRate
+    local runtime
     if not stamina then
         return
     end
     now = tonumber(now) or Core.Now()
+    runtime = record and record.runtime or nil
     lastUpdatedAt = tonumber(stamina.lastUpdatedAt) or now
     elapsed = math.max(0, now - lastUpdatedAt) / 1000
     stamina.lastUpdatedAt = now
@@ -134,11 +136,14 @@ function Stamina.Update(record, zombie, now)
     if record.health and record.health.state == "incapacitated" then
         recoverRate = Const.STAMINA_RECOVERY_DOWNED
     end
-    if record.runtime and record.runtime.pathing and record.runtime.pathing.goalX ~= nil and record.runtime.pathing.finished ~= true then
+    if record.runtime and record.runtime.pathing and (record.runtime.pathing.phase == "requested" or record.runtime.pathing.phase == "active") then
         recoverRate = math.min(recoverRate, Const.STAMINA_RECOVERY_MOVING)
     end
     if zombie and zombie.isRunning and zombie:isRunning() then
         recoverRate = Const.STAMINA_RECOVERY_MOVING
+    end
+    if runtime and runtime.staminaRecoveryMode == "retreat" then
+        recoverRate = math.max(recoverRate, Const.STAMINA_RECOVERY_IDLE)
     end
 
     stamina.current = clamp((tonumber(stamina.current) or 0) + (recoverRate * elapsed), 0, tonumber(stamina.max) or 100)

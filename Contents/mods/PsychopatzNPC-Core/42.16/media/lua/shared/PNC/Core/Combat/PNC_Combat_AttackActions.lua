@@ -18,6 +18,7 @@ local ZombieAggro = PNC.ZombieAggro
 local Unarmed = PNC.CombatUnarmed
 local Skills = PNC.Skills
 local Stamina = PNC.Stamina
+local Tactics = PNC.CombatTactics
 
 local function captureTargetRef(target)
     if not target then
@@ -176,6 +177,8 @@ end
 function Internal.applyAttackActionHit(record, zombie, action, target)
     local targetRecord
     local zombieTarget
+    local attackApplied
+    local attackReason
     if not action or not target then
         return false, "target_lost"
     end
@@ -241,7 +244,14 @@ function Internal.applyAttackActionHit(record, zombie, action, target)
                 Skills.AddXP(record, action.skillID or "Strength", action.attackKind == "ground" and 4 or 5)
                 Skills.AddXP(record, "Maintenance", 1)
             end
-            return Internal.applyDamageToZombie(record, zombie, target, action.damage, "melee")
+            attackApplied, attackReason = Internal.applyDamageToZombie(record, zombie, target, action.damage, "melee")
+            if attackApplied and action.attackKind == "melee" and Tactics and Tactics.ShouldPressureShove and Tactics.ShouldPressureShove(record) then
+                zombieTarget = Perception.FindZombieByID and Perception.FindZombieByID(target.zombieId) or nil
+                if zombieTarget and Unarmed and Unarmed.ApplyZombieShove then
+                    Unarmed.ApplyZombieShove(zombie, zombieTarget)
+                end
+            end
+            return attackApplied, attackReason
         end
     end
 

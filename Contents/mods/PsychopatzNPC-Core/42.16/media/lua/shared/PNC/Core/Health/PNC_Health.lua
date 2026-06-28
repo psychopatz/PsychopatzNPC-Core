@@ -56,7 +56,7 @@ end
 local function applyIncapacitatedLiveState(record, zombie)
     local Animation = resolveAnimation()
     local path = record and record.runtime and record.runtime.pathing or nil
-    local moving = path and path.goalX ~= nil and path.finished ~= true and path.mode == "crawl"
+    local moving = path and (path.phase == "requested" or path.phase == "active") and path.mode == "crawl"
     if not zombie then
         return
     end

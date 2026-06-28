@@ -11,4 +11,7 @@
 - companions and hostiles can both acquire zombie targets
 - unarmed combat uses shove and ground-finisher behavior instead of weapon swings
 - combat can trigger conservative kiting and repositioning through `PNC_Combat_Tactics`
+- horde-aware combat now prefers lower-density zombie picks over blindly taking the nearest body
+- low-stamina combat below the retreat threshold enters a recovery retreat instead of standing in place
+- surrounded melee pressure can add a shove-back stagger to create breathing room after a hit
 - combat debug state exposes target kind, resolved mode, weapon status, and block reason
