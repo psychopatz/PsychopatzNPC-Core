@@ -100,6 +100,9 @@ function Identity.RollAppearance(record)
     local look
     local survivor
     local spawnOutfit
+    local runtime
+    local hairColor
+    local cacheKey
     if not record then
         return nil
     end
@@ -111,7 +114,25 @@ function Identity.RollAppearance(record)
     look = choose(lookPool, seed, "look:" .. tostring(archetype.id))
     survivor = record.identity and record.identity.survivor or {}
     spawnOutfit = archetype.looks and archetype.looks.spawnOutfit or {}
-    return {
+    hairColor = survivor.hairColor or {}
+    runtime = record.runtime or {}
+    record.runtime = runtime
+    cacheKey = table.concat({
+        tostring(seed),
+        tostring(archetype.id),
+        tostring(record.isFemale == true),
+        tostring(record.outfit or ""),
+        tostring(survivor.skinTexture or ""),
+        tostring(survivor.hairModel or ""),
+        tostring(survivor.beardModel or ""),
+        tostring(hairColor.r or ""),
+        tostring(hairColor.g or ""),
+        tostring(hairColor.b or ""),
+    }, "|")
+    if runtime.appearanceCacheKey == cacheKey and runtime.appearanceCache then
+        return runtime.appearanceCache
+    end
+    runtime.appearanceCache = {
         outfit = record.outfit or (record.isFemale and spawnOutfit.female or spawnOutfit.male),
         outfitItems = type(look) == "table" and PNC.Core.DeepCopy(look) or {},
         skinTexture = survivor.skinTexture,
@@ -120,6 +141,8 @@ function Identity.RollAppearance(record)
         hairColor = survivor.hairColor,
         voice = survivor.voice,
     }
+    runtime.appearanceCacheKey = cacheKey
+    return runtime.appearanceCache
 end
 
 function Identity.GetCharacterSummary(record)

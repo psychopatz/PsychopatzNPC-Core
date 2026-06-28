@@ -167,8 +167,18 @@ local function onResetLua()
     ClientState.characterPayloads = {}
 end
 
-Events.OnServerCommand.Add(onServerCommand)
-Events.OnGameStart.Add(requestFullSync)
-Events.OnCreatePlayer.Add(requestFullSync)
-Events.OnFillWorldObjectContextMenu.Add(onFillWorldObjectContextMenu)
-Events.OnResetLua.Add(onResetLua)
+if Events and Events.OnServerCommand then
+    Events.OnServerCommand.Add(onServerCommand)
+end
+if Events and Events.OnGameStart then
+    Events.OnGameStart.Add(requestFullSync)
+end
+if Events and Events.OnCreatePlayer then
+    Events.OnCreatePlayer.Add(requestFullSync)
+end
+if Events and Events.OnFillWorldObjectContextMenu then
+    Events.OnFillWorldObjectContextMenu.Add(onFillWorldObjectContextMenu)
+end
+if Events and Events.OnResetLua then
+    Events.OnResetLua.Add(onResetLua)
+end

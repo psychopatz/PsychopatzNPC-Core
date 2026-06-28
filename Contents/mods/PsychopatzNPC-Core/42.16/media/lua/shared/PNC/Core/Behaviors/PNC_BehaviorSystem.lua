@@ -77,6 +77,13 @@ local function moveRecord(record, zombie, tx, ty, tz, mode, stopDistance)
     return true, "abstract_move"
 end
 
+local function resolveCombatApproachMode(dist, preferredMode)
+    if preferredMode == "run" and tonumber(dist) and tonumber(dist) <= 3.5 then
+        return "walk"
+    end
+    return preferredMode
+end
+
 local function updateTargetFromWorld(record, target)
     local targetRecord
     local player
@@ -177,7 +184,7 @@ local function tickEngage(record, zombie, target)
             return
         end
         if reason == "target_out_of_range" then
-            moveRecord(record, zombie, target.x, target.y, target.z, "run", Const.MELEE_RANGE)
+            moveRecord(record, zombie, target.x, target.y, target.z, resolveCombatApproachMode(dist, "run"), Const.MELEE_RANGE)
             setCombatDebug(record, target, "closing_to_melee", effectiveMode, equipmentInfo.weaponStatus)
             return
         end
@@ -203,7 +210,7 @@ local function tickEngage(record, zombie, target)
             return
         end
         if reason == "target_out_of_range" then
-            moveRecord(record, zombie, target.x, target.y, target.z, "run", Const.RANGED_RANGE * 0.8)
+            moveRecord(record, zombie, target.x, target.y, target.z, resolveCombatApproachMode(dist, "run"), Const.RANGED_RANGE * 0.8)
             setCombatDebug(record, target, "closing_to_range", effectiveMode, equipmentInfo.weaponStatus)
             return
         end
@@ -249,7 +256,7 @@ local function tickEngage(record, zombie, target)
         return
     end
     if reason == "target_out_of_range" then
-        moveRecord(record, zombie, target.x, target.y, target.z, "run", Const.RANGED_RANGE * 0.85)
+        moveRecord(record, zombie, target.x, target.y, target.z, resolveCombatApproachMode(dist, "run"), Const.RANGED_RANGE * 0.85)
         setCombatDebug(record, target, "closing_to_range", "mixed", equipmentInfo.weaponStatus)
         return
     end

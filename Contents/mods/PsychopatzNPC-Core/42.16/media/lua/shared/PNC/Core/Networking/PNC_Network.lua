@@ -56,9 +56,9 @@ local function buildIdentitySummary(record)
     }
 end
 
-local function buildCombatSummary(record)
+local function buildCombatSummary(record, equipmentInfo)
     local target = record.runtime and record.runtime.target or nil
-    local equipmentInfo = Equipment and Equipment.Describe and Equipment.Describe(record) or {}
+    equipmentInfo = equipmentInfo or Equipment and Equipment.Describe and Equipment.Describe(record) or {}
     return {
         targetKind = target and target.kind or "none",
         combatModeResolved = equipmentInfo.combatModeResolved or record.weaponMode,
@@ -162,7 +162,7 @@ function Network.BuildSnapshot(record)
     equipmentInfo = Equipment and Equipment.Describe and Equipment.Describe(record) or {}
     identity = buildIdentitySummary(record)
     inventorySummary = Inventory and Inventory.BuildSummaryPayload and Inventory.BuildSummaryPayload(record) or nil
-    combat = buildCombatSummary(record)
+    combat = buildCombatSummary(record, equipmentInfo)
     visualState = buildVisualState(record)
     appearance = Profiles and Profiles.RollAppearance and Profiles.RollAppearance(record) or nil
     return {

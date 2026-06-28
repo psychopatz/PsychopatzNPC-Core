@@ -6,10 +6,26 @@ local Core = PNC.Core
 local resolvePrimaryType
 local resolveModeFromPrimaryType
 
-local function buildWeaponDescriptor(fullType)
+Equipment.DescriptorCache = Equipment.DescriptorCache or {}
+
+local function copyDescriptor(source, item, createReason)
+    return {
+        fullType = source and source.fullType or nil,
+        primaryType = source and source.primaryType or "barehand",
+        resolvedMode = source and source.resolvedMode or "melee",
+        hasWeapon = source and source.hasWeapon == true or false,
+        hasUsableFirearm = source and source.hasUsableFirearm == true or false,
+        weaponStatus = source and source.weaponStatus or "barehand",
+        createReason = createReason or source and source.createReason or "unknown",
+        item = item,
+    }
+end
+
+local function buildWeaponDescriptor(fullType, includeItem)
     local item
     local primaryType
     local createReason
+    local cached
     if not fullType or fullType == "" then
         return {
             fullType = nil,
@@ -20,6 +36,27 @@ local function buildWeaponDescriptor(fullType)
             weaponStatus = "barehand",
             item = nil,
         }
+    end
+
+    cached = Equipment.DescriptorCache[fullType]
+    if cached and includeItem ~= true then
+        return copyDescriptor(cached, nil, cached.createReason)
+    end
+    if cached and includeItem == true then
+        item, createReason = Equipment.CreateItem(fullType)
+        if not item then
+            return {
+                fullType = fullType,
+                primaryType = "barehand",
+                resolvedMode = "melee",
+                hasWeapon = false,
+                hasUsableFirearm = false,
+                weaponStatus = createReason or "invalid_full_type",
+                createReason = createReason or "invalid_full_type",
+                item = nil,
+            }
+        end
+        return copyDescriptor(cached, item, createReason or cached.createReason)
     end
 
     item, createReason = Equipment.CreateItem(fullType)
@@ -37,7 +74,7 @@ local function buildWeaponDescriptor(fullType)
     end
 
     primaryType = resolvePrimaryType(item)
-    return {
+    cached = {
         fullType = fullType,
         primaryType = primaryType,
         resolvedMode = resolveModeFromPrimaryType(primaryType),
@@ -45,8 +82,9 @@ local function buildWeaponDescriptor(fullType)
         hasUsableFirearm = primaryType == "rifle" or primaryType == "handgun",
         weaponStatus = primaryType == "barehand" and "barehand" or ("equipped_" .. tostring(primaryType)),
         createReason = createReason or "unknown",
-        item = item,
     }
+    Equipment.DescriptorCache[fullType] = cached
+    return copyDescriptor(cached, includeItem == true and item or nil, createReason)
 end
 
 local function safeInvoke(target, methodName, ...)
@@ -335,7 +373,7 @@ function Equipment.Apply(zombie, record)
     end
 
     equipment = Equipment.EnsureRecordEquipment(record)
-    descriptor = buildWeaponDescriptor(equipment.primaryFullType)
+    descriptor = buildWeaponDescriptor(equipment.primaryFullType, true)
 
     laneOk, reasons[#reasons + 1] = applyWornItems(zombie, equipment)
     if not laneOk then
@@ -357,7 +395,7 @@ function Equipment.Apply(zombie, record)
 end
 
 function Equipment.ResolveWeaponMode(fullType)
-    return buildWeaponDescriptor(fullType).resolvedMode
+    return buildWeaponDescriptor(fullType, false).resolvedMode
 end
 
 function Equipment.Describe(record)
@@ -366,10 +404,24 @@ function Equipment.Describe(record)
     local descriptor
     local combatModeResolved
     local weaponStatus
+    local runtime
+    local cacheKey
+    local cached
+    local result
 
     configuredMode = tostring(record and record.weaponMode or "melee")
     fullType = record and record.equipment and record.equipment.primaryFullType or nil
-    descriptor = buildWeaponDescriptor(fullType)
+    runtime = record and (record.runtime or {}) or nil
+    if record then
+        record.runtime = runtime
+    end
+    cacheKey = configuredMode .. "|" .. tostring(fullType or "")
+    cached = runtime and runtime.equipmentDescribeCache or nil
+    if cached and cached.key == cacheKey and cached.value then
+        return cached.value
+    end
+
+    descriptor = buildWeaponDescriptor(fullType, false)
     combatModeResolved = configuredMode
     weaponStatus = descriptor.weaponStatus
 
@@ -410,7 +462,7 @@ function Equipment.Describe(record)
         end
     end
 
-    return {
+    result = {
         configuredMode = configuredMode,
         combatModeResolved = combatModeResolved,
         weaponStatus = weaponStatus,
@@ -419,4 +471,11 @@ function Equipment.Describe(record)
         hasUsableFirearm = descriptor.hasUsableFirearm,
         fullType = descriptor.fullType,
     }
+    if runtime then
+        runtime.equipmentDescribeCache = {
+            key = cacheKey,
+            value = result,
+        }
+    end
+    return result
 end

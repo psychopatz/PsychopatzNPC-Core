@@ -258,5 +258,10 @@ local function onResetLua()
     Sync.lastBodyScanAt = 0
 end
 
-Events.OnTick.Add(Sync.OnTick)
-Events.OnResetLua.Add(onResetLua)
+if Events and Events.OnTick then
+    Events.OnTick.Add(Sync.OnTick)
+end
+
+if Events and Events.OnResetLua then
+    Events.OnResetLua.Add(onResetLua)
+end

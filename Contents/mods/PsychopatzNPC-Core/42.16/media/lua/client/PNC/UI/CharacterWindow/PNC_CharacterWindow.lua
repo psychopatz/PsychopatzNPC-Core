@@ -71,7 +71,9 @@ local function onResetLua()
     CharacterWindow.Reset()
 end
 
-Events.OnResetLua.Add(onResetLua)
+if Events and Events.OnResetLua then
+    Events.OnResetLua.Add(onResetLua)
+end
 
 function ISPNCCharacterWindow:setNPC(npcId)
     local summary

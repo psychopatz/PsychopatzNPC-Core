@@ -91,9 +91,34 @@ function Stealth.IsOwnerDiscovered(owner)
     return false, "owner_hidden"
 end
 
+local function isOwnerActuallySneaking(owner, ownerDist)
+    local sneaking
+    if not owner or owner:isDead() then
+        return false
+    end
+    sneaking = owner.isSneaking and owner:isSneaking() or false
+    if sneaking ~= true then
+        return false
+    end
+    if owner.isRunning and owner:isRunning() then
+        return false
+    end
+    if owner.isSprinting and owner:isSprinting() then
+        return false
+    end
+    if owner.getVehicle and owner:getVehicle() then
+        return false
+    end
+    if tonumber(ownerDist) and tonumber(ownerDist) > 12 then
+        return false
+    end
+    return true
+end
+
 function Stealth.UpdateFollowState(record, owner)
     local runtime
     local ownerSneaking
+    local ownerDist
     local discovered
     local reason
 
@@ -104,9 +129,11 @@ function Stealth.UpdateFollowState(record, owner)
     runtime = record.runtime or {}
     record.runtime = runtime
     owner = owner or resolveOwner(record)
-    ownerSneaking = owner and owner.isSneaking and owner:isSneaking() or false
+    ownerDist = owner and Core.Distance(record.x, record.y, owner:getX(), owner:getY()) or nil
+    ownerSneaking = isOwnerActuallySneaking(owner, ownerDist)
 
     runtime.ownerSneaking = ownerSneaking
+    runtime.ownerDistance = ownerDist
     if (record.orderSpec and record.orderSpec.kind or nil) ~= Const.ORDER_FOLLOW then
         return Stealth.Clear(record, "not_follow_order")
     end
@@ -138,8 +165,11 @@ function Stealth.ShouldSuppressZombieAggro(record)
 end
 
 function Stealth.ResolveFollowMoveMode(record, owner, ownerDist)
-    if Stealth.IsFollowStealthActive(record) then
+    if Stealth.IsFollowStealthActive(record) and isOwnerActuallySneaking(owner, ownerDist) then
         return "sneak"
+    end
+    if owner and owner.isRunning and owner:isRunning() then
+        return "run"
     end
     if owner and owner.isSprinting and owner:isSprinting() then
         return "run"

@@ -610,5 +610,9 @@ end
 
 Events.OnCreatePlayer.Add(onCreatePlayer)
 Events.OnGameStart.Add(onGameStart)
-Events.OnPreUIDraw.Add(onPreUIDraw)
-Events.OnResetLua.Add(onResetLua)
+if Events and Events.OnPreUIDraw then
+    Events.OnPreUIDraw.Add(onPreUIDraw)
+end
+if Events and Events.OnResetLua then
+    Events.OnResetLua.Add(onResetLua)
+end

@@ -6,13 +6,16 @@
 - body removal on abstraction to prevent zombie husks
 - companion `Follow`, `Guard`, `Patrol`
 - hostile `Hunt` and `Roam`
-- shared melee and ranged combat
-- right-click debug spawning and control
+- shared melee and ranged combat with atomic combat files
+- zombie aggro bridge so zombies can acquire embodied NPCs
+- custom HP, incapacitation, revive window, and stamina
+- seeded identity, archetype registry, and compact inventory persistence
+- right-click debug spawning, NPC selection hub, and character window
 
 ## Immediate Next Steps
-- richer animation bindings
-- proper obstacle actions for doors, windows, and fences
-- better ranged aim and projectile handling
-- downed, revive, and corpse recovery extensions
+- smoother live motion and tighter SP/MP parity for chase and follow
+- richer animation bindings and better weapon-specific timing
+- better ranged aim, muzzle/projectile treatment, and combat diagnostics
+- more complete obstacle handling for windows, doors, and future fence traversal
 - migration adapter layer for DynamicTrading
 - deeper medical/body-part gameplay plugged into the NPC character window shell

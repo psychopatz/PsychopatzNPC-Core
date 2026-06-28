@@ -36,21 +36,6 @@ local function isRecordEnemy(source, target)
     return target.faction == "hostile"
 end
 
-local function ensureZombieID(zombie)
-    local modData
-    if not zombie or not zombie.getModData then
-        return nil
-    end
-    modData = zombie:getModData()
-    if not modData then
-        return nil
-    end
-    if not modData.PNC_ZombieID or tostring(modData.PNC_ZombieID) == "" then
-        modData.PNC_ZombieID = Core.GenerateID("pz")
-    end
-    return modData.PNC_ZombieID
-end
-
 local function isManagedNPCBody(zombie)
     local modData
     if not zombie or not zombie.getModData then
@@ -61,7 +46,13 @@ local function isManagedNPCBody(zombie)
 end
 
 local function buildZombieTarget(zombie, distSq)
-    local zombieId = ensureZombieID(zombie)
+    local modData = zombie and zombie.getModData and zombie:getModData() or nil
+    local zombieId = modData and modData.PNC_ZombieID or nil
+    if not zombieId and Spatial and Spatial.Rebuild then
+        Spatial.Rebuild()
+        modData = zombie and zombie.getModData and zombie:getModData() or nil
+        zombieId = modData and modData.PNC_ZombieID or nil
+    end
     if not zombieId then
         return nil
     end
@@ -134,8 +125,7 @@ function Perception.FindNearestEnemyNPC(record, radius)
 end
 
 function Perception.FindNearestEnemyZombie(record, radius)
-    local cell
-    local zombieList
+    local zombies
     local best
     local bestDistSq
     local i
@@ -145,20 +135,16 @@ function Perception.FindNearestEnemyZombie(record, radius)
     if not record or record.hostility and record.hostility.attackZombies == false then
         return nil
     end
-    if not getCell then
+    if not Spatial or not Spatial.QueryZombies then
         return nil
     end
-
-    cell = getCell()
-    zombieList = cell and cell.getZombieList and cell:getZombieList() or nil
-    if not zombieList then
-        return nil
-    end
+    radius = tonumber(radius) or Const.ZOMBIE_TARGET_RADIUS
 
     best = nil
     bestDistSq = math.huge
-    for i = 0, zombieList:size() - 1 do
-        zombie = zombieList:get(i)
+    zombies = Spatial.QueryZombies(record.x, record.y, radius)
+    for i = 1, #zombies do
+        zombie = zombies[i]
         if zombie and (not zombie:isDead()) and (not isManagedNPCBody(zombie)) and math.abs(zombie:getZ() - record.z) < 1 then
             distSq = Core.DistanceSq(record.x, record.y, zombie:getX(), zombie:getY())
             if distSq <= (radius * radius) and distSq < bestDistSq then
@@ -172,8 +158,7 @@ function Perception.FindNearestEnemyZombie(record, radius)
 end
 
 function Perception.CountEnemyZombies(record, radius)
-    local cell
-    local zombieList
+    local zombies
     local count = 0
     local i
     local zombie
@@ -182,18 +167,14 @@ function Perception.CountEnemyZombies(record, radius)
     if not record or record.hostility and record.hostility.attackZombies == false then
         return 0
     end
-    if not getCell then
+    if not Spatial or not Spatial.QueryZombies then
         return 0
     end
+    radius = tonumber(radius) or Const.ZOMBIE_TARGET_RADIUS
 
-    cell = getCell()
-    zombieList = cell and cell.getZombieList and cell:getZombieList() or nil
-    if not zombieList then
-        return 0
-    end
-
-    for i = 0, zombieList:size() - 1 do
-        zombie = zombieList:get(i)
+    zombies = Spatial.QueryZombies(record.x, record.y, radius)
+    for i = 1, #zombies do
+        zombie = zombies[i]
         if zombie and (not zombie:isDead()) and (not isManagedNPCBody(zombie)) and math.abs(zombie:getZ() - record.z) < 1 then
             distSq = Core.DistanceSq(record.x, record.y, zombie:getX(), zombie:getY())
             if distSq <= (radius * radius) then
@@ -206,25 +187,23 @@ function Perception.CountEnemyZombies(record, radius)
 end
 
 function Perception.FindZombieByID(zombieId)
-    local cell
-    local zombieList
-    local i
     local zombie
-    if not zombieId or not getCell then
+    if not zombieId or not Spatial or not Spatial.FindZombieByID then
         return nil
     end
-    cell = getCell()
-    zombieList = cell and cell.getZombieList and cell:getZombieList() or nil
-    if not zombieList then
-        return nil
+    zombie = Spatial.FindZombieByID(zombieId)
+    if zombie then
+        return zombie
     end
-    for i = 0, zombieList:size() - 1 do
-        zombie = zombieList:get(i)
-        if zombie and (not zombie:isDead()) and ensureZombieID(zombie) == zombieId then
-            return zombie
-        end
+    if Spatial.Rebuild then
+        Spatial.Rebuild()
+        return Spatial.FindZombieByID(zombieId)
     end
     return nil
+end
+
+local function getCompanionDefenseRadius()
+    return math.max(8, tonumber(Const.ZOMBIE_TARGET_RADIUS) or 12)
 end
 
 function Perception.ResolveCompanionTarget(record)
@@ -233,6 +212,7 @@ function Perception.ResolveCompanionTarget(record)
     local zombieTarget
     local hostileToOwnerNPC
     local hostileToOwnerZombie
+    local defenseRadius = getCompanionDefenseRadius()
 
     if Stealth and Stealth.ShouldSuppressCompanionCombat and Stealth.ShouldSuppressCompanionCombat(record) then
         record.runtime = record.runtime or {}
@@ -242,8 +222,8 @@ function Perception.ResolveCompanionTarget(record)
     end
 
     owner = Core.ResolvePlayerByOnlineID(record.ownerOnlineID) or Core.ResolvePlayerByUsername(record.ownerUsername)
-    npcTarget = Perception.FindNearestEnemyNPC(record, 8)
-    zombieTarget = Perception.FindNearestEnemyZombie(record, 8)
+    npcTarget = Perception.FindNearestEnemyNPC(record, defenseRadius)
+    zombieTarget = Perception.FindNearestEnemyZombie(record, defenseRadius)
     if npcTarget or zombieTarget then
         return pickNearest(npcTarget, zombieTarget)
     end
@@ -256,7 +236,7 @@ function Perception.ResolveCompanionTarget(record)
             y = owner:getY(),
             z = owner:getZ(),
             hostility = record.hostility,
-        }, 8)
+        }, defenseRadius)
         hostileToOwnerZombie = Perception.FindNearestEnemyZombie({
             id = record.id,
             faction = record.faction,
@@ -264,7 +244,7 @@ function Perception.ResolveCompanionTarget(record)
             y = owner:getY(),
             z = owner:getZ(),
             hostility = record.hostility,
-        }, 8)
+        }, defenseRadius)
         return pickNearest(hostileToOwnerNPC, hostileToOwnerZombie)
     end
 
