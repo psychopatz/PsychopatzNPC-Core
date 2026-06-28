@@ -3,26 +3,12 @@ PNC.Identity = PNC.Identity or {}
 
 local Identity = PNC.Identity
 local Archetypes = PNC.Archetypes
-local Names = PNC.IdentityNames
-local Core = PNC.Core
 
 local function normalizeString(value)
     if value == nil or value == "" then
         return nil
     end
     return tostring(value)
-end
-
-local function copyList(list)
-    local result = {}
-    local i
-    if type(list) ~= "table" then
-        return result
-    end
-    for i = 1, #list do
-        result[i] = list[i]
-    end
-    return result
 end
 
 local function choose(list, seed, salt)
@@ -47,6 +33,9 @@ function Identity.ResolveArchetypeID(source)
 end
 
 function Identity.ResolveIsFemale(source, seed)
+    if source and source.identity and source.identity.isFemale ~= nil then
+        return source.identity.isFemale == true
+    end
     if source and source.isFemale ~= nil then
         return source.isFemale == true
     end
@@ -55,31 +44,51 @@ end
 
 function Identity.ResolveDisplayName(source, seed, isFemale, archetypeID)
     local explicit = normalizeString(source and (source.displayName or source.name) or nil)
+    if source and source.identity and normalizeString(source.identity.displayName) then
+        return normalizeString(source.identity.displayName)
+    end
     if explicit then
         return explicit
     end
-    return Names.Generate(seed, isFemale, archetypeID)
+    return "Survivor"
 end
 
 function Identity.ApplyRecordIdentity(record, source)
     local seed
     local archetype
+    local resolvedIdentity
     if not record then
         return nil
     end
     seed = Identity.NormalizeSeed(
-        source and source.identitySeed or record.identitySeed,
+        source and (source.identitySeed or (source.identity and source.identity.seed)) or record.identitySeed,
         tostring(source and (source.displayName or source.name or source.faction) or record.id or "pnc")
     )
     archetype = Archetypes.Get(Identity.ResolveArchetypeID(source or record))
-    record.identitySeed = seed
-    record.archetypeID = archetype.id
-    record.archetypeLabel = archetype.label
-    record.isFemale = Identity.ResolveIsFemale(source or record, seed)
-    record.name = Identity.ResolveDisplayName(source or record, seed, record.isFemale, archetype.id)
+    resolvedIdentity = type(source and source.identity) == "table" and PNC.Core.DeepCopy(source.identity)
+        or type(record.identity) == "table" and PNC.Core.DeepCopy(record.identity)
+        or Identity.GenerateResolvedIdentity({
+            id = record.id,
+            displayName = source and source.displayName or source and source.name or nil,
+            name = source and source.name or nil,
+            isFemale = source and source.isFemale,
+            archetypeID = archetype.id,
+            archetypeLabel = archetype.label,
+            identitySeed = seed,
+        })
+    resolvedIdentity.seed = seed
+    resolvedIdentity.archetypeID = archetype.id
+    resolvedIdentity.archetypeLabel = archetype.label
+    resolvedIdentity.displayName = Identity.ResolveDisplayName({ identity = resolvedIdentity, displayName = source and source.displayName or nil, name = source and source.name or nil }, seed, resolvedIdentity.isFemale == true, archetype.id)
+    record.identity = resolvedIdentity
+    record.identitySeed = resolvedIdentity.seed
+    record.archetypeID = resolvedIdentity.archetypeID
+    record.archetypeLabel = resolvedIdentity.archetypeLabel
+    record.isFemale = resolvedIdentity.isFemale == true
+    record.name = resolvedIdentity.displayName
     record.visualProfile = normalizeString(source and source.visualProfile or record.visualProfile) or archetype.visualProfile
-    record.outfit = normalizeString(source and source.outfit or record.outfit)
-        or (record.isFemale and archetype.spawnOutfit.female or archetype.spawnOutfit.male)
+    record.outfit = normalizeString(source and source.outfit or record.outfit) or nil
+    record.allowedJobs = PNC.Core.DeepCopy(archetype.allowedJobs or record.allowedJobs or {})
     return record
 end
 
@@ -89,6 +98,8 @@ function Identity.RollAppearance(record)
     local seed
     local lookPool
     local look
+    local survivor
+    local spawnOutfit
     if not record then
         return nil
     end
@@ -98,25 +109,30 @@ function Identity.RollAppearance(record)
     genderKey = record.isFemale and "female" or "male"
     lookPool = archetype.looks and archetype.looks[genderKey] or nil
     look = choose(lookPool, seed, "look:" .. tostring(archetype.id))
+    survivor = record.identity and record.identity.survivor or {}
+    spawnOutfit = archetype.looks and archetype.looks.spawnOutfit or {}
     return {
-        outfit = record.outfit or (record.isFemale and archetype.spawnOutfit.female or archetype.spawnOutfit.male),
-        outfitItems = copyList(look),
-        skinTexture = choose(archetype.skin and archetype.skin[genderKey] or nil, seed, "skin:" .. tostring(archetype.id)),
-        hairModel = choose(archetype.hair and archetype.hair[genderKey] or nil, seed, "hair:" .. tostring(archetype.id)),
-        beardModel = record.isFemale and nil or choose(archetype.beard, seed, "beard:" .. tostring(archetype.id)),
+        outfit = record.outfit or (record.isFemale and spawnOutfit.female or spawnOutfit.male),
+        outfitItems = type(look) == "table" and PNC.Core.DeepCopy(look) or {},
+        skinTexture = survivor.skinTexture,
+        hairModel = survivor.hairModel,
+        beardModel = record.isFemale and nil or survivor.beardModel,
+        hairColor = survivor.hairColor,
+        voice = survivor.voice,
     }
 end
 
 function Identity.GetCharacterSummary(record)
     local archetype = Archetypes.Get(record and record.archetypeID or nil)
+    local identity = record and record.identity or {}
     return {
-        displayName = record and record.name or "Unknown",
+        displayName = identity.displayName or record and record.name or "Unknown",
         archetypeID = archetype.id,
         archetypeLabel = archetype.label,
-        identitySeed = record and record.identitySeed or 1,
-        isFemale = record and record.isFemale == true or false,
+        identitySeed = identity.seed or record and record.identitySeed or 1,
+        isFemale = identity.isFemale == true or record and record.isFemale == true or false,
         recruited = record and record.recruited == true or false,
         faction = record and record.faction or "companion",
+        survivor = PNC.Core.DeepCopy(identity.survivor or {}),
     }
 end
-

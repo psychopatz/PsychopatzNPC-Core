@@ -7,6 +7,8 @@
 ## Owned Data
 - versioned persisted schema
 - canonical persisted fields only
+- nested `identity` payload
+- compact `inventory` payload
 - runtime rebuild defaults after load
 
 ## Public Functions
@@ -20,4 +22,3 @@
 - does not materialize live bodies
 - does not own targets, path caches, or combat scratch state
 - does not build client snapshots
-

@@ -139,8 +139,6 @@ local function tickEngage(record, zombie, target)
         if dist <= Const.MELEE_RANGE * 1.1 then
             haltMovement(record, zombie)
             PNC.Animation.Apply(zombie, record, "Idle")
-        else
-            PNC.Animation.Apply(zombie, record, dist > Const.MELEE_RANGE and "Run" or "Walk")
         end
     end
 
@@ -283,7 +281,7 @@ function Behavior.Tick(record, zombie, now)
                 clearCombatTarget(record, record.runtime.stealthActive and "holding_follow_stealth" or "holding_follow_position")
                 if zombie then
                     PathService.Reset(zombie, record)
-                    PNC.Animation.Apply(zombie, record, record.runtime.stealthActive and "SneakWalk" or "Idle")
+                    PNC.Animation.Apply(zombie, record, "Idle")
                 end
                 return
             end

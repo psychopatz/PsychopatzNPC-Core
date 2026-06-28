@@ -40,6 +40,20 @@ local function normalizeEquipment(equipment)
     }
 end
 
+local function normalizeIdentity(identity)
+    if type(identity) ~= "table" then
+        return nil
+    end
+    return Core.DeepCopy(identity)
+end
+
+local function normalizeInventory(inventory)
+    if type(inventory) ~= "table" then
+        return nil
+    end
+    return Core.DeepCopy(inventory)
+end
+
 local function normalizePatrolPoints(points, fallbackX, fallbackY, fallbackZ)
     local output = {}
     local i
@@ -90,11 +104,13 @@ function Types.NormalizeDefinition(definition)
         ownerUsername = def.ownerUsername,
         ownerOnlineID = def.ownerOnlineID,
         identitySeed = tonumber(def.identitySeed) or nil,
+        identity = normalizeIdentity(def.identity),
         orderSpec = def.orderSpec,
         patrolPoints = normalizePatrolPoints(def.patrolPoints, x, y, z),
         weaponMode = tostring(def.weaponMode or (isHostile and "mixed" or "melee")),
         combatProfile = Core.DeepCopy(def.combatProfile or {}),
         equipment = normalizeEquipment(def.equipment),
+        inventory = normalizeInventory(def.inventory),
         allowedJobs = Core.DeepCopy(def.allowedJobs or {}),
         forceLive = def.forceLive == true,
         debug = def.debug == true,
@@ -115,6 +131,7 @@ function Types.NewRecord(definition)
             def.identitySeed,
             tostring(def.displayName or def.name or def.archetypeID or def.faction or "PNC NPC") .. ":" .. tostring(generatedID)
         ) or (tonumber(def.identitySeed) or 1),
+        identity = normalizeIdentity(def.identity),
         archetypeID = def.archetypeID,
         archetypeLabel = nil,
         faction = def.faction,
@@ -137,6 +154,7 @@ function Types.NewRecord(definition)
         patrolIndex = 1,
         weaponMode = def.weaponMode,
         equipment = normalizeEquipment(def.equipment),
+        inventory = normalizeInventory(def.inventory),
         combatProfile = {
             meleeDamage = tonumber(def.combatProfile.meleeDamage) or 10,
             rangedDamage = tonumber(def.combatProfile.rangedDamage) or 7,

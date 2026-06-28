@@ -162,8 +162,6 @@ local function applyWornItems(zombie, equipment)
         return true, "worn:none"
     end
 
-    clearExplicitWornItems(zombie)
-
     for i = 1, #entries do
         entry = entries[i]
         item, createReason = Equipment.CreateItem(entry.fullType)

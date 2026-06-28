@@ -69,6 +69,7 @@ local BODY_LOCATIONS_ORDERED = {
 }
 
 local BODY_LOCATION_PRIORITY = nil
+local BODY_LOCATION_CANONICAL = nil
 local ATTACHMENT_LOCATION_TO_TYPE = nil
 
 local function normalizeString(value)
@@ -87,6 +88,56 @@ local function normalizeStringMap(source)
     end
     for key, value in pairs(source) do
         key = normalizeString(key)
+        value = normalizeString(value)
+        if key and value then
+            output[key] = value
+        end
+    end
+    return output
+end
+
+local function getBodyLocationCanonical()
+    local map
+    local i
+    local canonical
+    if BODY_LOCATION_CANONICAL then
+        return BODY_LOCATION_CANONICAL
+    end
+    map = {}
+    for i = 1, #BODY_LOCATIONS_ORDERED do
+        canonical = BODY_LOCATIONS_ORDERED[i]
+        map[string.lower(canonical)] = canonical
+    end
+    BODY_LOCATION_CANONICAL = map
+    return BODY_LOCATION_CANONICAL
+end
+
+local function normalizeBodyLocation(value)
+    local lowered
+    local stripped
+    local canonical
+    value = normalizeString(value)
+    if not value then
+        return nil
+    end
+    lowered = string.lower(value)
+    stripped = string.match(lowered, "([^:%.]+)$") or lowered
+    canonical = getBodyLocationCanonical()[stripped]
+    if canonical then
+        return canonical
+    end
+    return value
+end
+
+local function normalizeWornMap(source)
+    local output = {}
+    local key
+    local value
+    if type(source) ~= "table" then
+        return output
+    end
+    for key, value in pairs(source) do
+        key = normalizeBodyLocation(key)
         value = normalizeString(value)
         if key and value then
             output[key] = value
@@ -137,7 +188,7 @@ function Equipment.NormalizeLoadoutSpec(loadoutSpec)
     return {
         primaryFullType = normalizeString(source.primaryFullType),
         secondaryFullType = normalizeString(source.secondaryFullType),
-        worn = normalizeStringMap(source.worn),
+        worn = normalizeWornMap(source.worn),
         attached = normalizeStringMap(source.attached),
     }
 end
@@ -196,7 +247,7 @@ end
 
 function Equipment.SetWorn(record, bodyLocation, fullType)
     local equipment
-    bodyLocation = normalizeString(bodyLocation)
+    bodyLocation = normalizeBodyLocation(bodyLocation)
     if not record or not bodyLocation then
         return false
     end

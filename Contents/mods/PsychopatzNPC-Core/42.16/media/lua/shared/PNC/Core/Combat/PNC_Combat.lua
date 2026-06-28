@@ -14,6 +14,18 @@ local Unarmed = PNC.CombatUnarmed
 local Skills = PNC.Skills
 local Stamina = PNC.Stamina
 
+local MELEE_BUMP_TYPES = {
+    onehanded = { "DTNPCAttack1H1", "DTNPCAttack1H2" },
+    twohanded = { "DTNPCAttack2H1", "DTNPCAttack2H2" },
+    spear = { "DTNPCAttack2H1", "DTNPCAttack2H2" },
+    knife = { "DTNPCAttackKnife" },
+}
+
+local RANGED_BUMP_TYPES = {
+    handgun = { "DTNPCIdleToAimPistol", "DTNPCAimPistol" },
+    rifle = { "DTNPCIdleToAimRifle", "DTNPCAimRifle" },
+}
+
 local function faceTarget(zombie, target)
     local liveTarget
     local zombieTarget
@@ -59,6 +71,39 @@ local function resolveWeaponItem(record)
         item, _ = Equipment.CreateItem(fullType)
     end
     return item
+end
+
+local function resolveMeleeAnimFamily(record, equipmentInfo)
+    local fullType = string.lower(tostring(record and record.equipment and record.equipment.primaryFullType or ""))
+    if fullType ~= "" and (
+        string.find(fullType, "knife", 1, true)
+        or string.find(fullType, "dagger", 1, true)
+        or string.find(fullType, "shiv", 1, true)
+        or string.find(fullType, "scalpel", 1, true)
+    ) then
+        return "knife"
+    end
+    if equipmentInfo and (equipmentInfo.primaryType == "twohanded" or equipmentInfo.primaryType == "spear") then
+        return equipmentInfo.primaryType
+    end
+    return "onehanded"
+end
+
+local function triggerMeleeWeaponAnim(zombie, record, equipmentInfo)
+    local options = MELEE_BUMP_TYPES[resolveMeleeAnimFamily(record, equipmentInfo)] or MELEE_BUMP_TYPES.onehanded
+    if not zombie or not Animation or not Animation.PlayBump or not options or #options <= 0 then
+        return
+    end
+    Animation.PlayBump(zombie, record, options[ZombRand(#options) + 1])
+end
+
+local function triggerRangedWeaponAnim(zombie, record, equipmentInfo)
+    local family = equipmentInfo and equipmentInfo.primaryType == "rifle" and "rifle" or "handgun"
+    local options = RANGED_BUMP_TYPES[family] or RANGED_BUMP_TYPES.handgun
+    if not zombie or not Animation or not Animation.PlayBump or not options or #options <= 0 then
+        return
+    end
+    Animation.PlayBump(zombie, record, options[ZombRand(#options) + 1])
 end
 
 local function applyDamageToZombie(record, attackerZombie, target, damage, attackType)
@@ -154,13 +199,12 @@ function Combat.TryMelee(record, zombie, target)
     record.runtime.lastAttackAt = now
     record.runtime.inCombatUntil = now + Const.DEBUG_COMBAT_HOLD_MS
     faceTarget(zombie, target)
-    if zombie then
-        Animation.Apply(zombie, record, "Attack")
-    end
 
     if target.kind == "player" then
         if equipmentInfo.primaryType == "barehand" and Animation and Animation.PlayBump then
             Animation.PlayBump(zombie, record, "Shove")
+        elseif zombie then
+            triggerMeleeWeaponAnim(zombie, record, equipmentInfo)
         end
         if isBarehand then
             damage = tonumber(profile.unarmedDamage) or Const.UNARMED_DAMAGE
@@ -183,6 +227,8 @@ function Combat.TryMelee(record, zombie, target)
         if targetRecord then
             if equipmentInfo.primaryType == "barehand" and Animation and Animation.PlayBump then
                 Animation.PlayBump(zombie, record, "Shove")
+            elseif zombie then
+                triggerMeleeWeaponAnim(zombie, record, equipmentInfo)
             end
             if isBarehand then
                 damage = tonumber(profile.unarmedDamage) or Const.UNARMED_DAMAGE
@@ -238,6 +284,9 @@ function Combat.TryMelee(record, zombie, target)
             end
             return false, "zombie_shove_failed"
         end
+        if zombie then
+            triggerMeleeWeaponAnim(zombie, record, equipmentInfo)
+        end
         if Stamina and Stamina.SpendAttack then
             Stamina.SpendAttack(record, "melee", skillID)
         end
@@ -283,7 +332,7 @@ function Combat.TryRanged(record, zombie, target)
     record.runtime.inCombatUntil = now + Const.DEBUG_COMBAT_HOLD_MS
     faceTarget(zombie, target)
     if zombie then
-        Animation.Apply(zombie, record, "Attack")
+        triggerRangedWeaponAnim(zombie, record, equipmentInfo)
     end
 
     if target.kind == "player" then

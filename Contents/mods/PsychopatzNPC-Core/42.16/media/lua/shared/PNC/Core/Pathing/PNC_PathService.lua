@@ -29,6 +29,7 @@ local function isSquareWalkable(x, y, z)
 end
 
 local function setWalkAnim(zombie, record, mode)
+    local previousWalkType
     local walkType = "Walk"
     if mode == "run" then
         walkType = "Run"
@@ -37,26 +38,20 @@ local function setWalkAnim(zombie, record, mode)
     elseif mode == "crawl" then
         walkType = "Walk"
     end
-    if zombie.setVariable then
-        zombie:setVariable("PNCWalkType", walkType)
-    end
-    if zombie.setWalkType then
-        zombie:setWalkType(walkType)
-    end
+    previousWalkType = zombie.getVariableString and zombie:getVariableString("PNCWalkType") or ""
     if zombie.setUseless then
         zombie:setUseless(false)
     end
-    if zombie.setBumpType then
-        if mode == "run" then
-            zombie:setBumpType("IdleToRun")
-        else
-            zombie:setBumpType("IdleToWalk")
-        end
+    if previousWalkType == "" and zombie.setBumpType then
+        zombie:setBumpType(mode == "run" and "IdleToRun" or "IdleToWalk")
     end
     if mode == "crawl" then
         Animation.Apply(zombie, record, "Crawl")
     else
         Animation.Apply(zombie, record, walkType)
+    end
+    if Animation and Animation.SyncLocomotion then
+        Animation.SyncLocomotion(zombie)
     end
 end
 
@@ -79,6 +74,59 @@ local function resetPathController(zombie)
     if zombie.setTarget then
         zombie:setTarget(nil)
     end
+end
+
+local function issuePathRequest(zombie, targetX, targetY, targetZ)
+    local behavior
+    if not zombie then
+        return false
+    end
+    if zombie.getPathFindBehavior2 then
+        behavior = zombie:getPathFindBehavior2()
+        if behavior and behavior.pathToLocation and behavior.update then
+            behavior:pathToLocation(targetX, targetY, targetZ)
+            behavior:update()
+            return true
+        end
+    end
+    if zombie.pathToLocationF then
+        zombie:pathToLocationF(targetX, targetY, targetZ)
+        return true
+    end
+    if zombie.pathToLocation then
+        zombie:pathToLocation(targetX, targetY, targetZ)
+        return true
+    end
+    return false
+end
+
+local function getActionStateName(zombie)
+    if not zombie or not zombie.getActionStateName then
+        return ""
+    end
+    return string.lower(tostring(zombie:getActionStateName() or ""))
+end
+
+local function recoverConflictingState(zombie, record, path)
+    local actionState = getActionStateName(zombie)
+    if not zombie or not record or not path then
+        return false
+    end
+    if actionState ~= "walktoward" and actionState ~= "lunge" then
+        return false
+    end
+    Core.LogRecordDebug(record, "NPC " .. tostring(record.id) .. " recovering path state from " .. tostring(actionState))
+    resetPathController(zombie)
+    if zombie.clearAggroList then
+        zombie:clearAggroList()
+    end
+    if zombie.changeState and ZombieIdleState and ZombieIdleState.instance then
+        zombie:changeState(ZombieIdleState.instance())
+    end
+    path.wasActive = false
+    setWalkAnim(zombie, record, path.mode or "walk")
+    issuePathRequest(zombie, path.goalX, path.goalY, path.goalZ)
+    return true
 end
 
 local function openDoorForNPC(zombie, object)
@@ -262,17 +310,14 @@ local function ensurePathRequest(zombie, record, targetX, targetY, targetZ, mode
         resetPathController(zombie)
     end
     path.wasActive = true
-
-    if zombie.pathToLocationF then
-        zombie:pathToLocationF(targetX, targetY, targetZ)
-    elseif zombie.pathToLocation then
-        zombie:pathToLocation(targetX, targetY, targetZ)
-    end
+    issuePathRequest(zombie, targetX, targetY, targetZ)
 end
 
 local function updatePathRequest(zombie, record)
     local runtime = record.runtime
     local path = runtime and runtime.pathing or nil
+    local behavior
+    local behaviorResult
     local now
     local zx
     local zy
@@ -287,8 +332,28 @@ local function updatePathRequest(zombie, record)
     zy = zombie:getY()
     zz = zombie:getZ()
     dist = Core.Distance(zx, zy, path.goalX, path.goalY)
+    if recoverConflictingState(zombie, record, path) then
+        path.lastIssueAt = now
+        path.lastProgressAt = now
+        path.lastX = zombie:getX()
+        path.lastY = zombie:getY()
+        return true, "state_recovered"
+    end
+    if zombie.getPathFindBehavior2 then
+        behavior = zombie:getPathFindBehavior2()
+        if behavior and behavior.update then
+            behaviorResult = behavior:update()
+        end
+    end
 
     if dist <= (tonumber(path.stopDistance) or 0.7) and zz == path.goalZ then
+        path.finished = true
+        path.wasActive = false
+        resetPathController(zombie)
+        return true, "arrived"
+    end
+
+    if BehaviorResult and behaviorResult == BehaviorResult.Succeeded then
         path.finished = true
         path.wasActive = false
         resetPathController(zombie)
@@ -304,12 +369,16 @@ local function updatePathRequest(zombie, record)
 
     if tryDoorOrWindowInteraction(zombie, record, path.goalX, path.goalY, path.goalZ) then
         path.lastIssueAt = now
-        if zombie.pathToLocationF then
-            zombie:pathToLocationF(path.goalX, path.goalY, path.goalZ)
-        elseif zombie.pathToLocation then
-            zombie:pathToLocation(path.goalX, path.goalY, path.goalZ)
-        end
+        issuePathRequest(zombie, path.goalX, path.goalY, path.goalZ)
         return true, "interact"
+    end
+
+    if BehaviorResult and behaviorResult == BehaviorResult.Failed then
+        path.lastIssueAt = now
+        resetPathController(zombie)
+        setWalkAnim(zombie, record, path.mode)
+        issuePathRequest(zombie, path.goalX, path.goalY, path.goalZ)
+        return true, "repath"
     end
 
     if (now - (tonumber(path.lastProgressAt) or 0)) >= 1200 then
@@ -317,12 +386,7 @@ local function updatePathRequest(zombie, record)
         path.lastIssueAt = now
         resetPathController(zombie)
         setWalkAnim(zombie, record, path.mode)
-        if zombie.pathToLocationF then
-            zombie:pathToLocationF(path.goalX, path.goalY, path.goalZ)
-            return true, "repath"
-        end
-        if zombie.pathToLocation then
-            zombie:pathToLocation(path.goalX, path.goalY, path.goalZ)
+        if issuePathRequest(zombie, path.goalX, path.goalY, path.goalZ) then
             return true, "repath"
         end
         if isSquareWalkable(path.goalX, path.goalY, path.goalZ) then
@@ -364,7 +428,7 @@ function PathService.MoveToward(record, zombie, targetX, targetY, targetZ, mode,
         if mode == "crawl" then
             Animation.Apply(zombie, record, "Crawl")
         else
-            Animation.Apply(zombie, record, mode == "sneak" and "SneakWalk" or "Idle")
+            Animation.Apply(zombie, record, "Idle")
         end
         return true, "arrived"
     end
@@ -386,7 +450,7 @@ function PathService.Pump(record, zombie)
         if path.mode == "crawl" then
             Animation.Apply(zombie, record, "Crawl")
         else
-            Animation.Apply(zombie, record, path.mode == "sneak" and "SneakWalk" or "Idle")
+            Animation.Apply(zombie, record, "Idle")
         end
     end
     return ok, reason

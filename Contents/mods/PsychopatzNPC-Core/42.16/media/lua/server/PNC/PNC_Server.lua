@@ -19,11 +19,29 @@ local Network = PNC.Network
 local API = PNC.API
 local ZombieAggro = PNC.ZombieAggro
 local Stamina = PNC.Stamina
+local Archetypes = PNC.Archetypes
+local Animation = PNC.Animation
+
+local function resolveDebugArchetype(args, faction, fallbackID)
+    local explicit = args and args.archetypeID or nil
+    local defaults
+    if explicit and Archetypes and Archetypes.Get then
+        return Archetypes.Get(explicit).id
+    end
+    if Archetypes then
+        defaults = faction == "hostile" and Archetypes.GetHostileDefaults and Archetypes.GetHostileDefaults()
+            or Archetypes.GetCompanionDefaults and Archetypes.GetCompanionDefaults()
+        if type(defaults) == "table" and defaults[1] then
+            return tostring(defaults[1])
+        end
+    end
+    return fallbackID
+end
 
 local function buildSnapshotList()
     local list = {}
     Registry.ForEach(function(record)
-        list[#list + 1] = Network.BuildSnapshot(record)
+        list[#list + 1] = Network.BuildRosterSnapshot(record)
     end)
     return list
 end
@@ -50,6 +68,9 @@ local function processRecord(record, now)
     end
 
     if now < (tonumber(record.nextThinkAt) or 0) then
+        if zombie and Animation and Animation.SyncLocomotion then
+            Animation.SyncLocomotion(zombie, record)
+        end
         return
     end
 
@@ -60,6 +81,10 @@ local function processRecord(record, now)
     if (now - (tonumber(record.lastSyncAt) or 0)) >= 500 then
         Network.BroadcastRecord(record, "tick")
         record.lastSyncAt = now
+    end
+
+    if zombie and Animation and Animation.SyncLocomotion then
+        Animation.SyncLocomotion(zombie, record)
     end
 end
 
@@ -84,7 +109,7 @@ local function handleDebugSpawn(player, args)
     if args and args.variant == "companion" then
         API.Spawn({
             faction = "companion",
-            archetypeID = "General",
+            archetypeID = resolveDebugArchetype(args, "companion", "General"),
             x = x,
             y = y,
             z = z,
@@ -104,7 +129,7 @@ local function handleDebugSpawn(player, args)
     if args and args.variant == "hostile_melee" then
         API.Spawn({
             faction = "hostile",
-            archetypeID = "Scavenger",
+            archetypeID = resolveDebugArchetype(args, "hostile", "Scavenger"),
             x = x,
             y = y,
             z = z,
@@ -118,7 +143,7 @@ local function handleDebugSpawn(player, args)
     if args and args.variant == "hostile_ranged" then
         API.Spawn({
             faction = "hostile",
-            archetypeID = "Mechanic",
+            archetypeID = resolveDebugArchetype(args, "hostile", "Scavenger"),
             x = x,
             y = y,
             z = z,
@@ -139,6 +164,11 @@ local function onClientCommand(module, command, player, args)
     if command == Const.CMD_FULL_SYNC_REQUEST then
         snapshots = buildSnapshotList()
         Network.BroadcastFullSync(player, snapshots)
+        return
+    end
+
+    if command == Const.CMD_REQUEST_CHARACTER and args and args.id then
+        Network.SendCharacterPayload(player, Registry.Get(args.id))
         return
     end
 

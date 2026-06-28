@@ -6,12 +6,15 @@ local Const = PNC.Const
 Const.MOD_ID = "PsychopatzNPC-Core"
 Const.MODULE = "PNC"
 Const.MODDATA_KEY = "PNC_Core_Global"
-Const.PERSISTENCE_VERSION = 2
+Const.PERSISTENCE_VERSION = 3
 
 Const.CMD_FULL_SYNC_REQUEST = "RequestFullSync"
 Const.CMD_FULL_SYNC = "FullSync"
 Const.CMD_SYNC_RECORD = "SyncRecord"
 Const.CMD_REMOVE_RECORD = "RemoveRecord"
+Const.CMD_REQUEST_CHARACTER = "RequestCharacterPayload"
+Const.CMD_CHARACTER_PAYLOAD = "CharacterPayload"
+Const.CMD_INVENTORY_DELTA = "InventoryDelta"
 Const.CMD_DEBUG = "DebugCommand"
 
 Const.PRESENCE_LIVE = "live"
@@ -83,3 +86,4 @@ Const.STAMINA_RECOVERY_MOVING = 4.5
 Const.STAMINA_RECOVERY_COMBAT = 3.0
 Const.STAMINA_RECOVERY_DOWNED = 2.5
 Const.STAMINA_VISIBLE_MS = 4000
+Const.INVENTORY_OPLOG_MAX = 32

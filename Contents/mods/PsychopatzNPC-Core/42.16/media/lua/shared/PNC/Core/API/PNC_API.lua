@@ -9,7 +9,26 @@ local OrderSystem = PNC.OrderSystem
 local Presence = PNC.Presence
 local Equipment = PNC.Equipment
 local Health = PNC.Health
+local Inventory = PNC.Inventory
 local Network = PNC.Network
+
+local function hasAnyEntries(map)
+    local _
+    for _, _ in pairs(map or {}) do
+        return true
+    end
+    return false
+end
+
+local function hasExplicitEquipment(equipment)
+    return equipment
+        and (
+            equipment.primaryFullType ~= nil
+            or equipment.secondaryFullType ~= nil
+            or hasAnyEntries(equipment.worn)
+            or hasAnyEntries(equipment.attached)
+        )
+end
 
 local function refreshEquipmentRuntime(record)
     local equipmentInfo
@@ -38,6 +57,15 @@ local function applyLiveEquipment(record, reason)
 end
 
 local function finalizeNewRecord(record, definition)
+    if Inventory then
+        if definition.inventory and Inventory.Deserialize then
+            Inventory.Deserialize(record, definition.inventory)
+        elseif hasExplicitEquipment(definition.equipment) and Inventory.SyncFromEquipment then
+            Inventory.SyncFromEquipment(record, "spawn_definition_equipment")
+        elseif Inventory.EnsureRecordInventory then
+            Inventory.EnsureRecordInventory(record)
+        end
+    end
     OrderSystem.SetOrder(record, definition.orderSpec)
     if definition.faction == "hostile" then
         OrderSystem.SetHostility(record, {
@@ -103,6 +131,9 @@ function API.SetLoadout(npcId, equipmentSpec)
         return false
     end
     Equipment.SetLoadout(record, equipmentSpec)
+    if Inventory and Inventory.SyncFromEquipment then
+        Inventory.SyncFromEquipment(record, "set_loadout")
+    end
     if record.equipment and record.equipment.primaryFullType then
         record.weaponMode = Equipment.ResolveWeaponMode(record.equipment.primaryFullType)
     else
@@ -134,6 +165,17 @@ function API.GetSnapshot(npcId)
     end
     if PNC.Network and PNC.Network.ClientState and PNC.Network.ClientState.snapshots then
         return PNC.Network.ClientState.snapshots[npcId]
+    end
+    return nil
+end
+
+function API.GetCharacterPayload(npcId)
+    local record = Registry.Get(npcId)
+    if record and Network and Network.BuildCharacterPayload then
+        return Network.BuildCharacterPayload(record)
+    end
+    if PNC.Network and PNC.Network.ClientState and PNC.Network.ClientState.characterPayloads then
+        return PNC.Network.ClientState.characterPayloads[npcId]
     end
     return nil
 end
@@ -192,6 +234,9 @@ function API.DebugCommand(npcId, command, args)
         fullType = args and args.weaponFullType or nil
         Core.LogRecordDebug(record, "NPC " .. tostring(npcId) .. " copy_held_weapon requested fullType=" .. tostring(fullType))
         Equipment.SetPrimary(record, fullType)
+        if Inventory and Inventory.SyncFromEquipment then
+            Inventory.SyncFromEquipment(record, "copy_held_weapon")
+        end
         if fullType then
             record.weaponMode = Equipment.ResolveWeaponMode(fullType)
         else
@@ -205,6 +250,9 @@ function API.DebugCommand(npcId, command, args)
         Core.LogRecordDebug(record, "NPC " .. tostring(npcId) .. " copy_player_loadout copied=" .. tostring(loadoutCopied) .. " reason=" .. tostring(loadoutReason))
         if not loadoutCopied then
             return false
+        end
+        if Inventory and Inventory.SyncFromEquipment then
+            Inventory.SyncFromEquipment(record, "copy_player_loadout")
         end
         if record.equipment and record.equipment.primaryFullType then
             record.weaponMode = Equipment.ResolveWeaponMode(record.equipment.primaryFullType)

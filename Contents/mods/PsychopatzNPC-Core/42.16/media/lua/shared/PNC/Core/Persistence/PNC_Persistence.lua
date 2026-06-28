@@ -6,6 +6,7 @@ local Core = PNC.Core
 local Const = PNC.Const
 local Identity = PNC.Identity
 local Types = PNC.Types
+local Inventory = PNC.Inventory
 
 local function normalizeString(value)
     if value == nil or value == "" then
@@ -15,14 +16,17 @@ local function normalizeString(value)
 end
 
 local function normalizeNumber(value, fallback)
-    local number = tonumber(value)
-    if number == nil then
-        return tonumber(fallback) or 0
+    local numeric = tonumber(value)
+    if numeric == nil then
+        numeric = tonumber(fallback)
     end
-    return number
+    if numeric == nil then
+        numeric = 0
+    end
+    return numeric
 end
 
-local function copyMap(source)
+local function copyStringMap(source)
     local output = {}
     local key
     local value
@@ -30,7 +34,11 @@ local function copyMap(source)
         return output
     end
     for key, value in pairs(source) do
-        output[tostring(key)] = tostring(value)
+        key = normalizeString(key)
+        value = normalizeString(value)
+        if key and value then
+            output[key] = value
+        end
     end
     return output
 end
@@ -61,6 +69,39 @@ local function copyPoints(points, fallbackX, fallbackY, fallbackZ)
     return output
 end
 
+local function sanitizeColor(raw)
+    if type(raw) ~= "table" then
+        return nil
+    end
+    return {
+        r = normalizeNumber(raw.r, 0.2),
+        g = normalizeNumber(raw.g, 0.1),
+        b = normalizeNumber(raw.b, 0.1),
+    }
+end
+
+local function sanitizeIdentity(rawIdentity, record)
+    local identity = type(rawIdentity) == "table" and Core.DeepCopy(rawIdentity) or {}
+    local archetypeID = normalizeString(identity.archetypeID or record.archetypeID)
+    local archetypeLabel = normalizeString(identity.archetypeLabel or record.archetypeLabel)
+    return {
+        seed = Identity.NormalizeSeed(identity.seed or record.identitySeed, record.id),
+        archetypeID = archetypeID,
+        archetypeLabel = archetypeLabel,
+        displayName = normalizeString(identity.displayName or record.name),
+        isFemale = identity.isFemale == true or record.isFemale == true,
+        survivor = {
+            forename = normalizeString(identity.survivor and identity.survivor.forename),
+            surname = normalizeString(identity.survivor and identity.survivor.surname),
+            hairModel = normalizeString(identity.survivor and identity.survivor.hairModel),
+            beardModel = normalizeString(identity.survivor and identity.survivor.beardModel),
+            hairColor = sanitizeColor(identity.survivor and identity.survivor.hairColor),
+            skinTexture = normalizeString(identity.survivor and identity.survivor.skinTexture),
+            voice = normalizeString(identity.survivor and identity.survivor.voice),
+        },
+    }
+end
+
 local function sanitizeOrderSpec(orderSpec, record)
     local spec = type(orderSpec) == "table" and Core.DeepCopy(orderSpec) or nil
     if not spec then
@@ -78,55 +119,64 @@ local function sanitizeOrderSpec(orderSpec, record)
     if spec.z ~= nil then
         spec.z = normalizeNumber(spec.z, record.anchorZ)
     end
-    if spec.ownerUsername ~= nil then
-        spec.ownerUsername = normalizeString(spec.ownerUsername)
-    end
+    spec.ownerUsername = normalizeString(spec.ownerUsername)
     spec.ownerOnlineID = nil
     return spec
 end
 
-local function sanitizeHealth(rawHealth, hpMax)
-    local maxValue = math.max(1, normalizeNumber(rawHealth and rawHealth.max or nil, hpMax or Const.DEFAULT_HP_MAX))
-    local current = normalizeNumber(rawHealth and rawHealth.current or nil, maxValue)
+local function sanitizeHealth(rawHealth, fallbackMax)
+    local maxValue = math.max(1, normalizeNumber(rawHealth and rawHealth.max, fallbackMax or Const.DEFAULT_HP_MAX))
+    local currentValue = Core.Clamp(normalizeNumber(rawHealth and rawHealth.current, maxValue), 0, maxValue)
     return {
-        current = Core.Clamp(current, 0, maxValue),
+        current = currentValue,
         max = maxValue,
         state = tostring(rawHealth and rawHealth.state or "normal"),
-        lastDamageAt = normalizeNumber(rawHealth and rawHealth.lastDamageAt or nil, 0),
-        downedAt = normalizeNumber(rawHealth and rawHealth.downedAt or nil, 0),
-        recentDamageUntil = normalizeNumber(rawHealth and rawHealth.recentDamageUntil or nil, 0),
-        reviveUntil = normalizeNumber(rawHealth and rawHealth.reviveUntil or nil, 0),
+        lastDamageAt = normalizeNumber(rawHealth and rawHealth.lastDamageAt, 0),
+        downedAt = normalizeNumber(rawHealth and rawHealth.downedAt, 0),
+        recentDamageUntil = normalizeNumber(rawHealth and rawHealth.recentDamageUntil, 0),
+        reviveUntil = normalizeNumber(rawHealth and rawHealth.reviveUntil, 0),
     }
 end
 
-local function sanitizeStamina(rawStamina)
+local function sanitizeStamina(rawStamina, record)
+    local output
     if type(rawStamina) ~= "table" then
         return nil
     end
-    return {
-        current = normalizeNumber(rawStamina.current, nil),
-        max = normalizeNumber(rawStamina.max, nil),
+    output = {
+        current = normalizeNumber(rawStamina.current, 0),
+        max = normalizeNumber(rawStamina.max, 0),
         state = tostring(rawStamina.state or "fresh"),
         visibleUntil = normalizeNumber(rawStamina.visibleUntil, 0),
     }
+    if record then
+        record.stamina = output
+        if PNC.Stamina and PNC.Stamina.BuildSnapshot then
+            output = Core.DeepCopy(PNC.Stamina.BuildSnapshot(record))
+            record.stamina = output
+        end
+    end
+    return output
 end
 
 local function sanitizeProgression(rawProgression)
     local output = {
-        skillXP = {},
+        recruited = false,
         skillLevels = {},
+        skillXP = {},
     }
     local key
     local value
     local source = type(rawProgression) == "table" and rawProgression or {}
-    if type(source.skillXP) == "table" then
-        for key, value in pairs(source.skillXP) do
-            output.skillXP[tostring(key)] = math.max(0, normalizeNumber(value, 0))
-        end
-    end
+    output.recruited = source.recruited == true
     if type(source.skillLevels) == "table" then
         for key, value in pairs(source.skillLevels) do
             output.skillLevels[tostring(key)] = math.max(0, math.min(10, math.floor(normalizeNumber(value, 0))))
+        end
+    end
+    if type(source.skillXP) == "table" then
+        for key, value in pairs(source.skillXP) do
+            output.skillXP[tostring(key)] = math.max(0, normalizeNumber(value, 0))
         end
     end
     return output
@@ -141,6 +191,38 @@ local function sanitizeHostility(rawHostility, faction)
         attackNPCs = source.attackNPCs ~= false,
         attackZombies = source.attackZombies ~= false,
     }
+end
+
+local function migrateLegacyIdentity(raw, definition)
+    if type(raw.identity) == "table" then
+        return Core.DeepCopy(raw.identity)
+    end
+    return {
+        seed = raw.identitySeed,
+        archetypeID = raw.archetypeID,
+        archetypeLabel = raw.archetypeLabel,
+        displayName = raw.displayName or raw.name,
+        isFemale = raw.isFemale == true,
+        survivor = {
+            hairModel = raw.hairModel,
+            beardModel = raw.beardModel,
+            skinTexture = raw.skinTexture,
+            hairColor = sanitizeColor(raw.hairColor),
+            voice = raw.voice,
+            forename = raw.forename,
+            surname = raw.surname,
+        },
+    }
+end
+
+local function migrateLegacyInventory(raw)
+    if type(raw.inventory) == "table" then
+        return Core.DeepCopy(raw.inventory)
+    end
+    if type(raw.equipment) == "table" then
+        return nil
+    end
+    return nil
 end
 
 function Persistence.RebuildRuntime(record)
@@ -182,9 +264,7 @@ function Persistence.RebuildRuntime(record)
     record.presenceRevision = normalizeNumber(record.presenceRevision, 0)
     record.ownerOnlineID = nil
     healthState = record.health and tostring(record.health.state or "normal") or "normal"
-    if record.alive == false then
-        record.presenceState = Const.PRESENCE_CORPSE
-    elseif healthState == "corpse" then
+    if record.alive == false or healthState == "corpse" then
         record.presenceState = Const.PRESENCE_CORPSE
     else
         record.presenceState = Const.PRESENCE_ABSTRACT
@@ -196,21 +276,25 @@ function Persistence.RebuildRuntime(record)
 end
 
 function Persistence.SerializeRecord(record)
+    local identity
+    local progression
     local payload
     if not record or record.persist == false then
         return nil
     end
+    if Inventory and Inventory.EnsureRecordInventory then
+        Inventory.EnsureRecordInventory(record)
+    end
+    identity = sanitizeIdentity(record.identity, record)
+    progression = sanitizeProgression(record.progression)
+    progression.recruited = record.recruited == true
     payload = {
         schemaVersion = Const.PERSISTENCE_VERSION,
         id = record.id,
-        identitySeed = record.identitySeed,
-        archetypeID = record.archetypeID,
-        displayName = record.name,
-        isFemale = record.isFemale == true,
+        persist = record.persist ~= false,
         faction = record.faction,
-        visualProfile = record.visualProfile,
-        outfit = record.outfit,
-        ownerUsername = record.ownerUsername,
+        ownerUsername = normalizeString(record.ownerUsername),
+        identity = identity,
         position = {
             x = normalizeNumber(record.x, 0),
             y = normalizeNumber(record.y, 0),
@@ -227,47 +311,50 @@ function Persistence.SerializeRecord(record)
             z = normalizeNumber(record.anchorZ, record.z),
         },
         presenceState = record.alive == false and Const.PRESENCE_CORPSE or Const.PRESENCE_ABSTRACT,
-        alive = record.alive ~= false,
         orderSpec = sanitizeOrderSpec(record.orderSpec, record),
         patrolPoints = copyPoints(record.patrolPoints, record.anchorX, record.anchorY, record.anchorZ),
         patrolIndex = math.max(1, math.floor(normalizeNumber(record.patrolIndex, 1))),
         hostility = sanitizeHostility(record.hostility, record.faction),
         health = sanitizeHealth(record.health, record.health and record.health.max or Const.DEFAULT_HP_MAX),
-        stamina = sanitizeStamina(record.stamina),
+        stamina = sanitizeStamina(record.stamina, record),
         weaponMode = tostring(record.weaponMode or "melee"),
         equipment = {
-            primaryFullType = normalizeString(record.equipment and record.equipment.primaryFullType or nil),
-            secondaryFullType = normalizeString(record.equipment and record.equipment.secondaryFullType or nil),
-            worn = copyMap(record.equipment and record.equipment.worn or nil),
-            attached = copyMap(record.equipment and record.equipment.attached or nil),
+            primaryFullType = normalizeString(record.equipment and record.equipment.primaryFullType),
+            secondaryFullType = normalizeString(record.equipment and record.equipment.secondaryFullType),
+            worn = copyStringMap(record.equipment and record.equipment.worn),
+            attached = copyStringMap(record.equipment and record.equipment.attached),
         },
-        progression = sanitizeProgression(record.progression),
-        recruited = record.recruited == true,
-        persist = record.persist ~= false,
+        inventory = Inventory and Inventory.Serialize and Inventory.Serialize(record) or nil,
+        progression = progression,
     }
     return payload
 end
 
 function Persistence.DeserializeRecord(raw, fallbackID)
-    local position
-    local anchor
-    local spawn
-    local record
     local definition
+    local position
+    local spawn
+    local anchor
+    local record
+    local identity
+    local progression
+    local inventoryData
     if type(raw) ~= "table" then
         return nil
     end
     position = raw.position or raw
-    anchor = raw.anchor or raw
     spawn = raw.spawn or raw
+    anchor = raw.anchor or raw
+    identity = migrateLegacyIdentity(raw)
+    inventoryData = migrateLegacyInventory(raw)
     definition = {
         id = raw.id or fallbackID,
-        name = raw.displayName or raw.name,
-        displayName = raw.displayName or raw.name,
+        displayName = raw.displayName or raw.name or (identity and identity.displayName) or nil,
+        name = raw.displayName or raw.name or (identity and identity.displayName) or nil,
         faction = raw.faction,
         visualProfile = raw.visualProfile,
         outfit = raw.outfit,
-        isFemale = raw.isFemale,
+        isFemale = raw.isFemale == true or (identity and identity.isFemale == true),
         x = normalizeNumber(position.x, raw.x or 0),
         y = normalizeNumber(position.y, raw.y or 0),
         z = normalizeNumber(position.z, raw.z or 0),
@@ -275,26 +362,24 @@ function Persistence.DeserializeRecord(raw, fallbackID)
         anchorY = normalizeNumber(anchor.y, raw.anchorY or raw.y or 0),
         anchorZ = normalizeNumber(anchor.z, raw.anchorZ or raw.z or 0),
         ownerUsername = normalizeString(raw.ownerUsername),
-        identitySeed = raw.identitySeed,
+        identitySeed = raw.identitySeed or (identity and identity.seed) or nil,
+        identity = identity,
         orderSpec = raw.orderSpec,
         patrolPoints = raw.patrolPoints,
         weaponMode = raw.weaponMode,
         combatProfile = raw.combatProfile,
         equipment = raw.equipment,
+        inventory = inventoryData,
         allowedJobs = raw.allowedJobs,
-        archetypeID = raw.archetypeID,
+        archetypeID = raw.archetypeID or (identity and identity.archetypeID) or nil,
         persist = raw.persist ~= false,
-        recruited = raw.recruited == true,
+        recruited = raw.recruited == true or (raw.progression and raw.progression.recruited == true) or false,
     }
     record = Types.NewRecord(definition)
     if not record then
         return nil
     end
     record.id = tostring(raw.id or record.id)
-    record.identitySeed = Identity.NormalizeSeed(raw.identitySeed or record.identitySeed, record.id)
-    record.name = normalizeString(raw.displayName or raw.name or record.name) or record.name
-    record.archetypeID = raw.archetypeID or record.archetypeID
-    record.archetypeLabel = normalizeString(raw.archetypeLabel) or record.archetypeLabel
     record.x = normalizeNumber(position.x, record.x)
     record.y = normalizeNumber(position.y, record.y)
     record.z = normalizeNumber(position.z, record.z)
@@ -305,20 +390,39 @@ function Persistence.DeserializeRecord(raw, fallbackID)
     record.anchorY = normalizeNumber(anchor.y, record.anchorY)
     record.anchorZ = normalizeNumber(anchor.z, record.anchorZ)
     record.ownerUsername = normalizeString(raw.ownerUsername) or record.ownerUsername
+    record.weaponMode = tostring(raw.weaponMode or record.weaponMode or "melee")
     record.patrolPoints = copyPoints(raw.patrolPoints or record.patrolPoints, record.anchorX, record.anchorY, record.anchorZ)
     record.patrolIndex = math.max(1, math.floor(normalizeNumber(raw.patrolIndex, 1)))
     record.orderSpec = sanitizeOrderSpec(raw.orderSpec, record)
     record.hostility = sanitizeHostility(raw.hostility, record.faction)
     record.health = sanitizeHealth(raw.health or raw, record.health and record.health.max or Const.DEFAULT_HP_MAX)
-    record.stamina = sanitizeStamina(raw.stamina) or record.stamina
-    record.progression = sanitizeProgression(raw.progression)
-    record.recruited = raw.recruited == true or record.recruited == true
-    record.persist = raw.persist ~= false
-    record.alive = raw.alive ~= false
-        and tostring(record.health.state or "") ~= "dead"
+    record.alive = tostring(record.health.state or "") ~= "dead"
         and tostring(record.health.state or "") ~= "corpse"
         and tostring(raw.presenceState or "") ~= Const.PRESENCE_CORPSE
-    Identity.ApplyRecordIdentity(record, record)
+    progression = sanitizeProgression(raw.progression)
+    record.progression = {
+        skillLevels = progression.skillLevels,
+        skillXP = progression.skillXP,
+    }
+    record.recruited = progression.recruited == true or record.recruited == true
+    record.persist = raw.persist ~= false
+    Identity.ApplyRecordIdentity(record, {
+        archetypeID = raw.archetypeID or record.archetypeID,
+        identitySeed = identity and identity.seed or record.identitySeed,
+        identity = identity,
+        displayName = raw.displayName or raw.name,
+        name = raw.displayName or raw.name,
+        visualProfile = raw.visualProfile,
+        outfit = raw.outfit,
+        isFemale = raw.isFemale == true or (identity and identity.isFemale == true),
+    })
+    sanitizeStamina(raw.stamina, record)
+    if Inventory and Inventory.Deserialize then
+        Inventory.Deserialize(record, raw.inventory)
+        if not raw.inventory and type(raw.equipment) == "table" and Inventory.SyncFromEquipment then
+            Inventory.SyncFromEquipment(record, "legacy_equipment_load")
+        end
+    end
     return Persistence.RebuildRuntime(record)
 end
 

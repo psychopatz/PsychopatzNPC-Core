@@ -14,9 +14,9 @@ local function clamp(value, minValue, maxValue)
     return value
 end
 
-function Tabs.RenderSkills(window, snapshot, topY)
+function Tabs.RenderSkills(window, snapshot, payload, topY)
     local groups = Catalog.GetGroups()
-    local skillLevels = snapshot and snapshot.skillLevels or {}
+    local skillLevels = snapshot and snapshot.skillLevels or payload and payload.snapshot and payload.snapshot.skillLevels or {}
     local y = topY - (window.scrollY or 0)
     local i
     local j
@@ -49,4 +49,3 @@ function Tabs.RenderSkills(window, snapshot, topY)
     window.scrollY = clamp(window.scrollY or 0, 0, window.maxScroll)
     return y
 end
-
