@@ -6,6 +6,40 @@ local Core = PNC.Core
 local Const = PNC.Const
 local Identity = PNC.Identity
 
+local function normalizeString(value)
+    if value == nil or value == "" then
+        return nil
+    end
+    return tostring(value)
+end
+
+local function normalizeStringMap(source)
+    local output = {}
+    local key
+    local value
+    if type(source) ~= "table" then
+        return output
+    end
+    for key, value in pairs(source) do
+        key = normalizeString(key)
+        value = normalizeString(value)
+        if key and value then
+            output[key] = value
+        end
+    end
+    return output
+end
+
+local function normalizeEquipment(equipment)
+    local source = type(equipment) == "table" and equipment or {}
+    return {
+        primaryFullType = normalizeString(source.primaryFullType),
+        secondaryFullType = normalizeString(source.secondaryFullType),
+        worn = normalizeStringMap(source.worn),
+        attached = normalizeStringMap(source.attached),
+    }
+end
+
 local function normalizePatrolPoints(points, fallbackX, fallbackY, fallbackZ)
     local output = {}
     local i
@@ -57,7 +91,7 @@ function Types.NormalizeDefinition(definition)
         patrolPoints = normalizePatrolPoints(def.patrolPoints, x, y, z),
         weaponMode = tostring(def.weaponMode or (isHostile and "mixed" or "melee")),
         combatProfile = Core.DeepCopy(def.combatProfile or {}),
-        equipment = Core.DeepCopy(def.equipment or {}),
+        equipment = normalizeEquipment(def.equipment),
         allowedJobs = Core.DeepCopy(def.allowedJobs or {}),
         forceLive = def.forceLive == true,
         debug = def.debug == true,
@@ -94,7 +128,7 @@ function Types.NewRecord(definition)
         patrolPoints = def.patrolPoints,
         patrolIndex = 1,
         weaponMode = def.weaponMode,
-        equipment = Core.DeepCopy(def.equipment or {}),
+        equipment = normalizeEquipment(def.equipment),
         combatProfile = {
             meleeDamage = tonumber(def.combatProfile.meleeDamage) or 10,
             rangedDamage = tonumber(def.combatProfile.rangedDamage) or 7,

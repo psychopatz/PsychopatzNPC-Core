@@ -188,7 +188,14 @@ local function onClientCommand(module, command, player, args)
                 args.weaponFullType = primary:getFullType()
             end
         end
+        args.sourcePlayer = player
         API.DebugCommand(args.id, "copy_held_weapon", args)
+        return
+    end
+
+    if args and args.action == "copy_player_loadout" then
+        args.sourcePlayer = player
+        API.DebugCommand(args.id, "copy_player_loadout", args)
         return
     end
 

@@ -11,6 +11,32 @@ local Equipment = PNC.Equipment
 local Health = PNC.Health
 local Network = PNC.Network
 
+local function refreshEquipmentRuntime(record)
+    local equipmentInfo
+    equipmentInfo = Equipment.Describe(record)
+    record.runtime.combatModeResolved = equipmentInfo.combatModeResolved
+    record.runtime.weaponStatus = equipmentInfo.weaponStatus
+    return equipmentInfo
+end
+
+local function applyLiveEquipment(record, reason)
+    local zombie = Registry.GetLiveZombie(record.id)
+    local applied = true
+    local applyReason = "no_live_body"
+    if zombie then
+        if PNC.Visuals and PNC.Visuals.ApplyHumanVisuals then
+            PNC.Visuals.ApplyHumanVisuals(zombie, record)
+        end
+        applied, applyReason = Equipment.Apply(zombie, record)
+        Core.LogRecordDebug(record, "NPC " .. tostring(record.id) .. " equipment apply live=" .. tostring(applied) .. " reason=" .. tostring(applyReason))
+    else
+        Core.LogRecordDebug(record, "NPC " .. tostring(record.id) .. " has no live body during equipment update; stored for later materialize")
+    end
+    refreshEquipmentRuntime(record)
+    Network.BroadcastRecord(record, reason or "equipment")
+    return applied, applyReason
+end
+
 local function finalizeNewRecord(record, definition)
     OrderSystem.SetOrder(record, definition.orderSpec)
     if definition.faction == "hostile" then
@@ -71,6 +97,21 @@ function API.SetHostility(npcId, modeSpec)
     return true
 end
 
+function API.SetLoadout(npcId, equipmentSpec)
+    local record = Registry.Get(npcId)
+    if not record then
+        return false
+    end
+    Equipment.SetLoadout(record, equipmentSpec)
+    if record.equipment and record.equipment.primaryFullType then
+        record.weaponMode = Equipment.ResolveWeaponMode(record.equipment.primaryFullType)
+    else
+        record.weaponMode = "melee"
+    end
+    applyLiveEquipment(record, "equipment")
+    return true
+end
+
 function API.ApplyDamage(npcId, damageEvent)
     local record = Registry.Get(npcId)
     local zombie
@@ -103,7 +144,8 @@ function API.DebugCommand(npcId, command, args)
     local fullType
     local applied
     local applyReason
-    local equipmentInfo
+    local loadoutCopied
+    local loadoutReason
     if not record then
         return false
     end
@@ -142,9 +184,7 @@ function API.DebugCommand(npcId, command, args)
     end
     if command == "set_weapon_mode" then
         record.weaponMode = tostring(args and args.weaponMode or record.weaponMode or "melee")
-        equipmentInfo = Equipment.Describe(record)
-        record.runtime.combatModeResolved = equipmentInfo.combatModeResolved
-        record.runtime.weaponStatus = equipmentInfo.weaponStatus
+        refreshEquipmentRuntime(record)
         Network.BroadcastRecord(record, "weapon_mode")
         return true
     end
@@ -152,21 +192,27 @@ function API.DebugCommand(npcId, command, args)
         fullType = args and args.weaponFullType or nil
         Core.LogRecordDebug(record, "NPC " .. tostring(npcId) .. " copy_held_weapon requested fullType=" .. tostring(fullType))
         Equipment.SetPrimary(record, fullType)
-        zombie = Registry.GetLiveZombie(npcId)
-        if zombie then
-            applied, applyReason = Equipment.Apply(zombie, record)
-            Core.LogRecordDebug(record, "NPC " .. tostring(npcId) .. " equipment apply live=" .. tostring(applied) .. " reason=" .. tostring(applyReason))
-        else
-            Core.LogRecordDebug(record, "NPC " .. tostring(npcId) .. " has no live body during weapon copy; equipment stored for later materialize")
-        end
         if fullType then
             record.weaponMode = Equipment.ResolveWeaponMode(fullType)
+        else
+            record.weaponMode = "melee"
         end
-        equipmentInfo = Equipment.Describe(record)
-        record.runtime.combatModeResolved = equipmentInfo.combatModeResolved
-        record.runtime.weaponStatus = equipmentInfo.weaponStatus
-        Network.BroadcastRecord(record, "equipment")
+        applied, applyReason = applyLiveEquipment(record, "equipment")
         return true
+    end
+    if command == "copy_player_loadout" then
+        loadoutCopied, loadoutReason = Equipment.CopyCharacterLoadout(record, args and args.sourcePlayer or nil)
+        Core.LogRecordDebug(record, "NPC " .. tostring(npcId) .. " copy_player_loadout copied=" .. tostring(loadoutCopied) .. " reason=" .. tostring(loadoutReason))
+        if not loadoutCopied then
+            return false
+        end
+        if record.equipment and record.equipment.primaryFullType then
+            record.weaponMode = Equipment.ResolveWeaponMode(record.equipment.primaryFullType)
+        else
+            record.weaponMode = "melee"
+        end
+        applied, applyReason = applyLiveEquipment(record, "equipment")
+        return applied ~= false
     end
     if command == "toggle_debug" then
         record.runtime.debug = not (record.runtime and record.runtime.debug == true)

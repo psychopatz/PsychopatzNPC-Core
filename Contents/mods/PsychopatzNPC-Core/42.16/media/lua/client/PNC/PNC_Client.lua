@@ -327,6 +327,10 @@ local function onFillWorldObjectContextMenu(playerNum, context, worldobjects, te
                 sendDebug("copy_held_weapon", { id = record.id, weaponFullType = heldItem:getFullType() })
             end)
         end
+        weaponMenu:addOption("Use My Full Loadout", nil, function()
+            print("[PNC] Requesting full loadout copy for " .. tostring(record.id))
+            sendDebug("copy_player_loadout", { id = record.id })
+        end)
     end
 end
 
