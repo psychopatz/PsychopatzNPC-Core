@@ -53,7 +53,7 @@ function Combat.TryMelee(record, zombie, target)
     damage = damage * (0.9 + math.min(skillLevel, 8) * 0.04 + math.min(strengthLevel, 6) * 0.02)
     record.runtime.lastAttackAt = now
     record.runtime.inCombatUntil = now + Const.DEBUG_COMBAT_HOLD_MS
-    Internal.faceTarget(zombie, target)
+    Internal.faceTarget(zombie, target, record, Internal.ATTACK_TIMINGS.melee.duration, "melee_windup")
 
     if target.kind == "zombie" then
         zombieTarget = Perception.FindZombieByID and Perception.FindZombieByID(target.zombieId) or nil
@@ -110,7 +110,7 @@ function Combat.TryDownedShove(record, zombie, target)
     end
     record.runtime.lastAttackAt = now
     record.runtime.inCombatUntil = now + Const.DEBUG_COMBAT_HOLD_MS
-    Internal.faceTarget(zombie, target)
+    Internal.faceTarget(zombie, target, record, Internal.ATTACK_TIMINGS.shove.duration, "downed_shove")
     if Unarmed and Unarmed.PlayShove then
         Unarmed.PlayShove(zombie, record, zombieTarget)
     end

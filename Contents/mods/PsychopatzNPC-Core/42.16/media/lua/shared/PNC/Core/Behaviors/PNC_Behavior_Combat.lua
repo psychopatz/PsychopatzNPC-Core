@@ -14,7 +14,6 @@ local Combat = PNC.Combat
 local Equipment = PNC.Equipment
 local Tactics = PNC.CombatTactics
 local Common = PNC.BehaviorCommon
-local Targeting = PNC.BehaviorTargeting
 
 function BehaviorCombat.TickEngage(record, zombie, target)
     local dist = math.sqrt(tonumber(target and target.distSq or 0) or 0)
@@ -27,7 +26,6 @@ function BehaviorCombat.TickEngage(record, zombie, target)
     local repositioned
     local repositionReason
 
-    Targeting.BindLiveTarget(zombie, target)
     Common.SetCombatDebug(record, target, "engaging_" .. tostring(target.kind or "unknown"), effectiveMode, equipmentInfo.weaponStatus)
 
     if equipmentInfo.weaponStatus ~= previousWeaponStatus then

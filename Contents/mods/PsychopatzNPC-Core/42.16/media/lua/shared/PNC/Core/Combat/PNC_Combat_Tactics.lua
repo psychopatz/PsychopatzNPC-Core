@@ -28,6 +28,12 @@ local function requestMove(record, zombie, x, y, z, mode, stopDistance, reason)
     return false
 end
 
+local function requestCombatFacing(record, zombie, target, leaseMs, reason)
+    if PathService and PathService.RequestCombatFacing then
+        PathService.RequestCombatFacing(record, zombie, target, leaseMs, reason)
+    end
+end
+
 local function isManagedNPCBody(zombie)
     local modData
     if not zombie or not zombie.getModData then
@@ -148,6 +154,7 @@ function Tactics.TryReposition(record, zombie, target, effectiveMode, reason, eq
         retreat = buildRetreatPoint(record, target, retreatDistance)
         if retreat then
             setRetreatState(record, true, "retreat")
+            requestCombatFacing(record, zombie, target, 180, "retreat_facing")
             requestMove(record, zombie, retreat.x, retreat.y, retreat.z, retreatMode, 0.8, "recovering_stamina")
             return true, "recovering_stamina"
         end
@@ -159,6 +166,7 @@ function Tactics.TryReposition(record, zombie, target, effectiveMode, reason, eq
         retreat = buildRetreatPoint(record, target, retreatDistance)
         if retreat then
             setRetreatState(record, true, report.staminaRatio <= 0.35 and "retreat" or "avoid_horde")
+            requestCombatFacing(record, zombie, target, 180, "horde_facing")
             requestMove(record, zombie, retreat.x, retreat.y, retreat.z, retreatMode, 0.8, "avoiding_horde")
             return true, "avoiding_horde"
         end
@@ -171,6 +179,7 @@ function Tactics.TryReposition(record, zombie, target, effectiveMode, reason, eq
         if target.kind == "zombie" and (dist < 4.2 or (reason == "cooldown_active" and nearbyCount >= 1)) then
             retreat = buildRetreatPoint(record, target, 1.4 + math.min(aiming, 6) * 0.12)
             if retreat then
+                requestCombatFacing(record, zombie, target, 140, "range_reposition")
                 requestMove(record, zombie, retreat.x, retreat.y, retreat.z, "walk", 0.25, "maintaining_range")
                 return true, "maintaining_range"
             end
@@ -183,6 +192,7 @@ function Tactics.TryReposition(record, zombie, target, effectiveMode, reason, eq
     if target.kind == "zombie" and (reason == "cooldown_active" or reason == "stamina_exhausted") and nearbyCount >= 2 then
         retreat = buildRetreatPoint(record, target, 0.75 + math.min(meleeSkill, 6) * 0.08)
         if retreat then
+            requestCombatFacing(record, zombie, target, 120, "melee_reposition")
             requestMove(record, zombie, retreat.x, retreat.y, retreat.z, "walk", 0.2, "melee_kiting")
             return true, "melee_kiting"
         end

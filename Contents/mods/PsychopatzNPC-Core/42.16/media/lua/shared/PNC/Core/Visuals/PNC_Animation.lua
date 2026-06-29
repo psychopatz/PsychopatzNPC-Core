@@ -8,6 +8,7 @@ PNC = PNC or {}
 PNC.Animation = PNC.Animation or {}
 
 local Animation = PNC.Animation
+local Core = PNC.Core
 local LiveBodyControl = PNC.LiveBodyControl
 
 local function setPNCStateVars(zombie, record, animState)
@@ -23,15 +24,24 @@ local function setPNCStateVars(zombie, record, animState)
 end
 
 local function setLocomotionVars(zombie, walkType, moving, animSpeed)
+    local movingNow = moving == true
+    local sneakingNow = tostring(walkType or "") == "SneakWalk"
     if not zombie then
         return
     end
     if zombie.setVariable then
         zombie:setVariable("PNCWalkType", tostring(walkType or ""))
         zombie:setVariable("PNCAnimSpeed", tonumber(animSpeed) or 1.0)
-        zombie:setVariable("PNCMoving", moving == true)
-        zombie:setVariable("bMoving", moving == true)
-        zombie:setVariable("isMoving", moving == true)
+        zombie:setVariable("PNCMoving", movingNow)
+        zombie:setVariable("bMoving", movingNow)
+        zombie:setVariable("isMoving", movingNow)
+        zombie:setVariable("IsSneaking", sneakingNow)
+    end
+    if zombie.setMoving then
+        zombie:setMoving(movingNow)
+    end
+    if zombie.setSneaking then
+        zombie:setSneaking(sneakingNow)
     end
 end
 
@@ -229,9 +239,29 @@ function Animation.PlayBump(zombie, record, bumpType)
     end
 end
 
-function Animation.SyncLocomotion(zombie)
+function Animation.SyncLocomotion(zombie, record)
     local walkType
+    local runtime
+    local attackAction
+    local path
+    local now
     if not zombie then
+        return
+    end
+    runtime = record and record.runtime or nil
+    attackAction = runtime and runtime.attackAction or nil
+    path = runtime and runtime.pathing or nil
+    now = Core and Core.Now and Core.Now() or 0
+    if attackAction and now < (tonumber(attackAction.finishAt) or 0) then
+        if zombie.setUseless then
+            zombie:setUseless(true)
+        end
+        return
+    end
+    if path and now < (tonumber(path.specialMoveUntil) or 0) and path.specialAnim then
+        if zombie.setUseless then
+            zombie:setUseless(true)
+        end
         return
     end
     walkType = zombie.getVariableString and zombie:getVariableString("PNCWalkType") or ""

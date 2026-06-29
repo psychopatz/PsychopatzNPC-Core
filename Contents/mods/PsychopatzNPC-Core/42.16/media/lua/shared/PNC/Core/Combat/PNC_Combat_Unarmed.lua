@@ -8,6 +8,7 @@ PNC = PNC or {}
 PNC.CombatUnarmed = PNC.CombatUnarmed or {}
 
 local Unarmed = PNC.CombatUnarmed
+local ZombieReaction = PNC.CombatZombieReaction
 
 local function isGroundTarget(target)
     local methods
@@ -73,35 +74,32 @@ function Unarmed.PlayShove(zombie, record, target)
     end
 end
 
-function Unarmed.ApplyZombieShove(attackerZombie, targetZombie)
-    local ok
-    local behind
+function Unarmed.ApplyZombieShove(attackerZombie, targetZombie, options)
     if not attackerZombie or not targetZombie or targetZombie:isDead() then
         return false
     end
-
+    if ZombieReaction and ZombieReaction.Start then
+        return ZombieReaction.Start(attackerZombie, targetZombie, {
+            kind = options and options.kind or "shove",
+            hitReaction = options and options.hitReaction or "HitReaction",
+            hitForce = tonumber(options and options.hitForce) or 1.08,
+            pushDistance = tonumber(options and options.pushDistance) or 0.22,
+            pushDurationMs = tonumber(options and options.pushDurationMs) or 160,
+            durationMs = tonumber(options and options.durationMs) or 240,
+            stepDistance = tonumber(options and options.stepDistance) or 0.07,
+            stagger = options == nil or options.stagger ~= false,
+            heavy = options and options.heavy == true,
+            knockdown = options and options.knockdown == true,
+        })
+    end
     if targetZombie.setAttackedBy then
         targetZombie:setAttackedBy(attackerZombie)
     end
-    if targetZombie.setPlayerAttackPosition and targetZombie.testDotSide then
-        targetZombie:setPlayerAttackPosition(targetZombie:testDotSide(attackerZombie))
-    end
-    if targetZombie.setHitFromBehind and attackerZombie.isBehind then
-        ok, behind = pcall(function()
-            return attackerZombie:isBehind(targetZombie)
-        end)
-        if ok then
-            targetZombie:setHitFromBehind(behind == true)
-        end
-    end
     if targetZombie.setHitForce then
-        targetZombie:setHitForce(1.15)
+        targetZombie:setHitForce(1.08)
     end
     if targetZombie.setStaggerBack then
         pcall(targetZombie.setStaggerBack, targetZombie, true)
-    end
-    if targetZombie.setKnockedDown then
-        targetZombie:setKnockedDown(true)
     end
     return true
 end

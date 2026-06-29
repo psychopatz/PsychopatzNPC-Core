@@ -14,6 +14,7 @@ local LiveBodyControl = PNC.LiveBodyControl
 
 local MAX_STEP_DELTA_MS = 120
 local MIN_STEP_INTERVAL_MS = 35
+local WALK_ANIM_SPEED = 1.04
 local MODE_SPEEDS = {
     crawl = 0.30,
     run = 2.10,
@@ -48,6 +49,26 @@ end
 local function getSpeedForMode(mode)
     mode = tostring(mode or "walk")
     return MODE_SPEEDS[mode] or MODE_SPEEDS.walk
+end
+
+function FakeLocomotion.GetModeSpeed(mode)
+    return getSpeedForMode(mode)
+end
+
+function FakeLocomotion.ComputeAnimSpeed(mode)
+    local speed = getSpeedForMode(mode)
+    local ratio = speed / math.max(0.01, MODE_SPEEDS.walk)
+    local animSpeed = WALK_ANIM_SPEED * math.sqrt(math.max(0.2, ratio))
+    if mode == "run" then
+        return math.max(1.40, math.min(1.72, animSpeed))
+    end
+    if mode == "sneak" then
+        return math.max(0.80, math.min(0.92, animSpeed))
+    end
+    if mode == "crawl" then
+        return math.max(0.68, math.min(0.78, animSpeed))
+    end
+    return math.max(0.98, math.min(1.12, animSpeed))
 end
 
 local function computeStepDistance(lane, mode, now)
@@ -129,8 +150,10 @@ function FakeLocomotion.StepTowardGoal(zombie, record, lane, goal, now)
     for i = 1, #candidates do
         candidate = candidates[i]
         if isSquareWalkable(candidate.x, candidate.y, candidate.z) then
-            if zombie.faceLocationF then
-                zombie:faceLocationF(goal.x, goal.y)
+            if PNC.PathService and PNC.PathService.ApplyTravelFacing then
+                PNC.PathService.ApplyTravelFacing(zombie, lane, candidate.x, candidate.y, now)
+            elseif zombie.faceLocationF then
+                zombie:faceLocationF(candidate.x, candidate.y)
             end
             zombie:setX(candidate.x)
             zombie:setY(candidate.y)

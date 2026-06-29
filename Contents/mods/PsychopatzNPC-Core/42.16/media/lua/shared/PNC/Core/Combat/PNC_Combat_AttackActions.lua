@@ -16,6 +16,7 @@ local Health = PNC.Health
 local Perception = PNC.Perception
 local ZombieAggro = PNC.ZombieAggro
 local Unarmed = PNC.CombatUnarmed
+local ZombieReaction = PNC.CombatZombieReaction
 local Skills = PNC.Skills
 local Stamina = PNC.Stamina
 local Tactics = PNC.CombatTactics
@@ -123,17 +124,13 @@ function Internal.applyDamageToZombie(record, attackerZombie, target, damage, at
     local victim = target and target.zombieId and Perception.FindZombieByID(target.zombieId) or nil
     local fakeZombie
     local weaponItem
-    local ok
     local health
     local scaledDamage
     local applied = false
+    local reactionOptions
 
     if not victim or victim:isDead() then
         return false, "invalid_zombie_target"
-    end
-
-    if victim.setAttackedBy then
-        victim:setAttackedBy(attackerZombie or (getCell and getCell():getFakeZombieForHit() or nil))
     end
 
     weaponItem = Internal.resolveWeaponItem(record)
@@ -143,13 +140,24 @@ function Internal.applyDamageToZombie(record, attackerZombie, target, damage, at
     else
         scaledDamage = math.max(0.18, (tonumber(damage) or 0) * 0.08)
     end
-    if weaponItem and victim.Hit then
-        ok = pcall(function()
+
+    reactionOptions = {
+        kind = attackType == "ranged" and "ranged" or "melee",
+        hitReaction = attackType == "ranged" and "ShotBelly" or "HitReaction",
+        hitForce = attackType == "ranged" and 0.78 or 0.92,
+        pushDistance = attackType == "ranged" and 0 or 0.10,
+        pushDurationMs = attackType == "ranged" and 0 or 100,
+        durationMs = attackType == "ranged" and 140 or 190,
+        stepDistance = attackType == "ranged" and 0.02 or 0.05,
+        stagger = attackType ~= "ranged",
+    }
+
+    if ZombieReaction and ZombieReaction.ApplyWeaponHit then
+        applied = ZombieReaction.ApplyWeaponHit(attackerZombie or fakeZombie, victim, weaponItem, scaledDamage, reactionOptions)
+    elseif weaponItem and victim.Hit then
+        applied = pcall(function()
             victim:Hit(weaponItem, fakeZombie or attackerZombie, scaledDamage, false, 1, false)
         end)
-        if ok then
-            applied = true
-        end
     end
 
     if not applied then
@@ -163,13 +171,15 @@ function Internal.applyDamageToZombie(record, attackerZombie, target, damage, at
             end
         end
     end
-    if attackType == "ranged" and victim.setHitReaction then
+    if ZombieReaction and ZombieReaction.Start then
+        ZombieReaction.Start(attackerZombie or fakeZombie, victim, reactionOptions)
+    elseif attackType == "ranged" and victim.setHitReaction then
         victim:setHitReaction("ShotBelly")
     elseif victim.setHitReaction then
         victim:setHitReaction("HitReaction")
     end
-    if ZombieAggro and ZombieAggro.OnZombieProvoked and attackerZombie then
-        ZombieAggro.OnZombieProvoked(victim, attackerZombie)
+    if ZombieAggro and ZombieAggro.OnZombieProvoked and (attackerZombie or fakeZombie) then
+        ZombieAggro.OnZombieProvoked(victim, attackerZombie or fakeZombie)
     end
     return true, applied and "hit_zombie" or "hit_zombie_fallback"
 end
@@ -248,7 +258,14 @@ function Internal.applyAttackActionHit(record, zombie, action, target)
             if attackApplied and action.attackKind == "melee" and Tactics and Tactics.ShouldPressureShove and Tactics.ShouldPressureShove(record) then
                 zombieTarget = Perception.FindZombieByID and Perception.FindZombieByID(target.zombieId) or nil
                 if zombieTarget and Unarmed and Unarmed.ApplyZombieShove then
-                    Unarmed.ApplyZombieShove(zombie, zombieTarget)
+                    Unarmed.ApplyZombieShove(zombie, zombieTarget, {
+                        kind = "pressure_shove",
+                        hitForce = 1.02,
+                        pushDistance = 0.15,
+                        pushDurationMs = 110,
+                        durationMs = 160,
+                        stepDistance = 0.05,
+                    })
                 end
             end
             return attackApplied, attackReason
@@ -327,7 +344,7 @@ function Combat.PumpAttackAction(record, zombie)
 
     target = resolveActionTarget(action.target)
     if target then
-        Internal.faceTarget(zombie, target)
+        Internal.faceTarget(zombie, target, record, 120, "attack_followthrough")
     end
 
     if (not action.hitDone) and now >= (tonumber(action.hitAt) or 0) then

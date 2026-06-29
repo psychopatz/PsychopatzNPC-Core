@@ -16,6 +16,7 @@ local Registry = PNC.Registry
 local Animation = PNC.Animation
 local Equipment = PNC.Equipment
 local Perception = PNC.Perception
+local PathService = PNC.PathService
 
 Internal.MELEE_BUMP_TYPES = {
     onehanded = { "PNC_Attack1H1" },
@@ -36,13 +37,25 @@ Internal.ATTACK_TIMINGS = {
     ground = { hitDelay = 240, duration = 760 },
 }
 
-function Internal.faceTarget(zombie, target)
+function Internal.faceTarget(zombie, target, record, leaseMs, reason)
     local liveTarget
     local zombieTarget
+    local faceX
+    local faceY
     if not zombie or not target then
         return
     end
     if target.kind == "player" and target.player then
+        faceX = target.player:getX()
+        faceY = target.player:getY()
+        if PathService and PathService.RequestCombatFacing and record then
+            PathService.RequestCombatFacing(record, zombie, {
+                x = faceX,
+                y = faceY,
+                z = target.player:getZ(),
+            }, leaseMs, reason or "combat_player")
+            return
+        end
         if zombie.faceThisObject then
             zombie:faceThisObject(target.player)
         end
@@ -50,6 +63,14 @@ function Internal.faceTarget(zombie, target)
     end
     if target.kind == "npc" then
         liveTarget = Registry.GetLiveZombie(target.id)
+        if liveTarget and PathService and PathService.RequestCombatFacing and record then
+            PathService.RequestCombatFacing(record, zombie, {
+                x = liveTarget:getX(),
+                y = liveTarget:getY(),
+                z = liveTarget:getZ(),
+            }, leaseMs, reason or "combat_npc")
+            return
+        end
         if liveTarget and zombie.faceThisObject then
             zombie:faceThisObject(liveTarget)
         end
@@ -57,6 +78,14 @@ function Internal.faceTarget(zombie, target)
     end
     if target.kind == "zombie" then
         zombieTarget = Perception and Perception.FindZombieByID and Perception.FindZombieByID(target.zombieId) or nil
+        if zombieTarget and PathService and PathService.RequestCombatFacing and record then
+            PathService.RequestCombatFacing(record, zombie, {
+                x = zombieTarget:getX(),
+                y = zombieTarget:getY(),
+                z = zombieTarget:getZ(),
+            }, leaseMs, reason or "combat_zombie")
+            return
+        end
         if zombieTarget and zombie.faceThisObject then
             zombie:faceThisObject(zombieTarget)
         end

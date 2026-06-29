@@ -48,6 +48,15 @@ underlying zombie AI disabled with `setUseless(true)`.
   instead of over-speed walk.
 - The server resolves `animSpeed` and replicates it to clients so nearby
   multiplayer observers do not guess a different walk cadence.
+- Live locomotion now reapplies walk state every tick instead of only on
+  walk-type transitions, so `setMoving`, sneaking state, and walk type stay in
+  sync with the fake step stream.
+
+## Combat Override Notes
+
+- Active attack actions temporarily override locomotion sync.
+- Cancelling a move during an active attack no longer hard-resets the body back
+  to idle, which prevents swings and shove bumps from freezing mid-action.
 
 ## Current Special Movements
 
