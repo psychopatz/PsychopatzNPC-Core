@@ -39,8 +39,13 @@ function Internal.isManagedNPCBody(zombie)
 end
 
 function Internal.clearZombieTarget(zombie)
+    local modData
     if not zombie then
         return
+    end
+    modData = Internal.getZombieModData(zombie)
+    if modData then
+        modData.PNC_AggroNPCId = nil
     end
     if zombie.clearAggroList then
         zombie:clearAggroList()
@@ -54,6 +59,36 @@ function Internal.clearZombieTarget(zombie)
     if zombie.setVariable then
         zombie:setVariable("NoLungeAttack", false)
     end
+end
+
+function Internal.getForcedNPCBodyTarget(zombie)
+    local modData
+    local npcId
+    local record
+    local npcBody
+    if not zombie then
+        return nil, nil
+    end
+    modData = Internal.getZombieModData(zombie)
+    npcId = modData and modData.PNC_AggroNPCId or nil
+    if not npcId then
+        return nil, nil
+    end
+    record = Registry.Get(npcId)
+    npcBody = Registry.GetLiveZombie(npcId)
+    if not record or not npcBody or record.alive == false or record.presenceState ~= Const.PRESENCE_LIVE then
+        if modData then
+            modData.PNC_AggroNPCId = nil
+        end
+        return nil, nil
+    end
+    if npcBody.isDead and npcBody:isDead() then
+        if modData then
+            modData.PNC_AggroNPCId = nil
+        end
+        return nil, nil
+    end
+    return record, npcBody
 end
 
 function Internal.isCloseLivePlayerTarget(zombie, target)
@@ -122,16 +157,22 @@ function Internal.canZombieAttack(zombie, now)
 end
 
 function Internal.forceAggro(zombie, npcBody)
-    if zombie.spotted then
-        zombie:spotted(npcBody, true)
+    local modData
+    local record
+    local npcId
+    if not zombie or not npcBody then
+        return
     end
-    if zombie.addAggro then
-        zombie:addAggro(npcBody, 1)
+    modData = Internal.getZombieModData(zombie)
+    record = Registry.FindRecordByZombie(npcBody)
+    npcId = record and record.id or nil
+    if modData then
+        modData.PNC_AggroNPCId = npcId
     end
     if zombie.setTarget then
-        zombie:setTarget(npcBody)
+        zombie:setTarget(nil)
     end
     if zombie.setAttackedBy then
-        zombie:setAttackedBy(npcBody)
+        zombie:setAttackedBy(nil)
     end
 end

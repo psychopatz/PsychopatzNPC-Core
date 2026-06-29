@@ -4,4 +4,4 @@ description=Standalone server-authoritative NPC framework core for Build 42.<LIN
 author=Psychopatz
 category=framework
 version=0.1.0
-versionMin=42.16
+versionMin=42.19

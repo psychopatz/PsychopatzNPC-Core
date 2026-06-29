@@ -73,6 +73,12 @@ function ZombieAggro.TryStartBite(zombie, npcBody, record)
     if npcBody.setZombiesDontAttack then
         npcBody:setZombiesDontAttack(true)
     end
+    if zombie.setTarget then
+        zombie:setTarget(nil)
+    end
+    if zombie.setAttackedBy then
+        zombie:setAttackedBy(nil)
+    end
     if zombie.setBumpType then
         if npcBody.isProne and npcBody:isProne() or npcBody.isCrawling and npcBody:isCrawling() then
             zombie:setBumpType("BiteLow")

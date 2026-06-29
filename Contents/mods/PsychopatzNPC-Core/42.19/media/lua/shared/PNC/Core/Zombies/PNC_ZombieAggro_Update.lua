@@ -16,6 +16,8 @@ function ZombieAggro.ClearForNPCBody(npcBody)
     local i
     local zombie
     local target
+    local forcedRecord
+    local forcedBody
     if not npcBody or not getCell then
         return
     end
@@ -29,7 +31,8 @@ function ZombieAggro.ClearForNPCBody(npcBody)
         zombie = zombieList:get(i)
         if zombie and (not zombie:isDead()) and (not Internal.isManagedNPCBody(zombie)) then
             target = zombie.getTarget and zombie:getTarget() or nil
-            if target == npcBody then
+            forcedRecord, forcedBody = Internal.getForcedNPCBodyTarget(zombie)
+            if target == npcBody or forcedBody == npcBody then
                 Internal.clearZombieTarget(zombie)
                 ZombieAggro.ClearBiteEntryForZombie(zombie)
             end
@@ -84,41 +87,40 @@ function ZombieAggro.Pump(now)
                     end
                 else
                     if target and target.getModData and target:getModData().PNC_NPC == true then
-                        npcBody = target
-                        record = Registry.FindRecordByZombie(npcBody)
-                        if record and record.alive ~= false and record.presenceState == Const.PRESENCE_LIVE then
-                            if Stealth and Stealth.ShouldSuppressZombieAggro and Stealth.ShouldSuppressZombieAggro(record) then
-                                Internal.clearZombieTarget(zombie)
-                                ZombieAggro.ClearBiteEntryForZombie(zombie)
-                                if zombie.setVariable then
-                                    zombie:setVariable("NoLungeAttack", false)
-                                end
-                                record.runtime.combatBlockReason = "follow_stealth_hidden"
-                            else
-                                distSq = Core.DistanceSq(zombie:getX(), zombie:getY(), npcBody:getX(), npcBody:getY())
-                                dist = math.sqrt(distSq)
-                                if zombie.setVariable then
-                                    zombie:setVariable("NoLungeAttack", dist <= Const.ZOMBIE_AGGRO_KEEP_RADIUS)
-                                end
-                                if dist < Const.ZOMBIE_BITE_DISTANCE and math.abs(zombie:getZ() - npcBody:getZ()) < 0.3 then
-                                    if zombie.getSquare and npcBody.getSquare and zombie:getSquare() and npcBody:getSquare()
-                                        and not zombie:getSquare():isSomethingTo(npcBody:getSquare())
-                                    then
-                                        if zombie.isFacingObject and zombie:isFacingObject(npcBody, 0.3) then
-                                            ZombieAggro.TryStartBite(zombie, npcBody, record)
-                                        elseif zombie.faceThisObject then
-                                            zombie:faceThisObject(npcBody)
-                                        end
-                                    end
-                                elseif npcBody and zombie.pathToCharacter then
-                                    zombie:pathToCharacter(npcBody)
-                                elseif npcBody and zombie.pathToLocation then
-                                    zombie:pathToLocation(npcBody:getX(), npcBody:getY(), npcBody:getZ())
-                                end
-                            end
-                        else
+                        Internal.forceAggro(zombie, target)
+                    end
+
+                    record, npcBody = Internal.getForcedNPCBodyTarget(zombie)
+                    if record and npcBody then
+                        if Stealth and Stealth.ShouldSuppressZombieAggro and Stealth.ShouldSuppressZombieAggro(record) then
                             Internal.clearZombieTarget(zombie)
                             ZombieAggro.ClearBiteEntryForZombie(zombie)
+                            if zombie.setVariable then
+                                zombie:setVariable("NoLungeAttack", false)
+                            end
+                            record.runtime = record.runtime or {}
+                            record.runtime.combatBlockReason = "follow_stealth_hidden"
+                        else
+                            distSq = Core.DistanceSq(zombie:getX(), zombie:getY(), npcBody:getX(), npcBody:getY())
+                            dist = math.sqrt(distSq)
+                            if zombie.setVariable then
+                                zombie:setVariable("NoLungeAttack", dist <= Const.ZOMBIE_AGGRO_KEEP_RADIUS)
+                            end
+                            if dist < Const.ZOMBIE_BITE_DISTANCE and math.abs(zombie:getZ() - npcBody:getZ()) < 0.3 then
+                                if zombie.getSquare and npcBody.getSquare and zombie:getSquare() and npcBody:getSquare()
+                                    and not zombie:getSquare():isSomethingTo(npcBody:getSquare())
+                                then
+                                    if zombie.isFacingObject and zombie:isFacingObject(npcBody, 0.3) then
+                                        ZombieAggro.TryStartBite(zombie, npcBody, record)
+                                    elseif zombie.faceThisObject then
+                                        zombie:faceThisObject(npcBody)
+                                    end
+                                end
+                            elseif npcBody and zombie.pathToCharacter then
+                                zombie:pathToCharacter(npcBody)
+                            elseif npcBody and zombie.pathToLocation then
+                                zombie:pathToLocation(npcBody:getX(), npcBody:getY(), npcBody:getZ())
+                            end
                         end
                     else
                         nearestRecord, nearestBody, nearestDistSq = Internal.findNearestLiveNPC(zombie, Const.ZOMBIE_AGGRO_RADIUS)
